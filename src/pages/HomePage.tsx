@@ -288,7 +288,7 @@ export default function HomePage() {
                 {meta.easterEgg && (
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute right-4 top-2 -rotate-6 select-none text-[11px] font-medium italic tracking-wide text-ink-3/50"
+                    className="pointer-events-none absolute right-14 top-2.5 -rotate-6 select-none text-[12px] font-semibold italic tracking-wider text-ink-2/75"
                   >
                     {meta.easterEgg}
                   </span>
