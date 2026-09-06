@@ -157,6 +157,12 @@ input[type='number'] {
   background: transparent;
 }
 
+/* 隐藏 Netlify 免费徽标(官方允许关闭;避免遮挡底部交互) */
+#nl-badge-frame,
+iframe[srcdoc*="Powered by Netlify"] {
+  display: none !important;
+}
+
 /* 骨架屏微光 */
 @keyframes shimmer {
   0% {
