@@ -29,6 +29,9 @@ export function TennisFormPage() {
     date: new Date().toISOString().slice(0, 10),
     playType: 'singles',
   })
+  const [sets, setSets] = useState<{ a: number; b: number }[]>([])
+  const [technique, setTechnique] = useState<NonNullable<ActivityInput['technique']>>({})
+  const [fitness, setFitness] = useState<NonNullable<ActivityInput['fitness']>>({})
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -42,12 +45,20 @@ export function TennisFormPage() {
         playType: cur.playType ?? 'singles',
         partners: cur.partners ?? '',
         venue: cur.venue ?? '',
+        indoor: cur.indoor,
+        surface: cur.surface,
+        nature: cur.nature,
+        trainingTypes: cur.trainingTypes ?? [],
+        trainingFocus: cur.trainingFocus ?? '',
         isMatch: cur.isMatch,
         score: cur.score ?? {},
         scoreText: cur.scoreText ?? '',
         rpe: cur.rpe,
         notes: cur.notes ?? '',
       })
+      setSets(cur.sets ?? [])
+      setTechnique(cur.technique ?? {})
+      setFitness(cur.fitness ?? {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, existing])
@@ -58,10 +69,6 @@ export function TennisFormPage() {
       navigate('/tennis', { replace: true })
     }
   }, [editing, id, existing, navigate, LOADING])
-
-  if (editing && existing === LOADING) {
-    return <div className="p-6 text-ink-3">加载中…</div>
-  }
 
   const score = f.score ?? {}
   const setScore = (patch: Partial<NonNullable<ActivityInput['score']>>) =>
@@ -77,6 +84,10 @@ export function TennisFormPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score.gamesWon, score.gamesLost])
+
+  if (editing && existing === LOADING) {
+    return <div className="p-6 text-ink-3">加载中…</div>
+  }
 
   const scoreMismatch =
     score.gamesTotal !== undefined &&
@@ -102,6 +113,14 @@ export function TennisFormPage() {
           gamesLost: score.gamesLost || undefined,
           pointsTotal: undefined,
         },
+        indoor: f.indoor,
+        surface: f.surface,
+        nature: f.nature,
+        trainingTypes: f.trainingTypes?.length ? f.trainingTypes : undefined,
+        trainingFocus: f.trainingFocus?.trim() || undefined,
+        sets: sets.filter((x) => Number.isFinite(x.a) || Number.isFinite(x.b)),
+        technique: Object.values(technique).some((v) => v !== undefined && v !== null) ? technique : undefined,
+        fitness: Object.values(fitness).some((v) => v !== undefined && v !== null) ? fitness : undefined,
       }
       if (editing && id) {
         await updateActivity(id, payload)
@@ -222,6 +241,32 @@ export function TennisFormPage() {
           </div>
           {scoreMismatch && <p className="text-xs text-warn">胜盘 + 负盘 与总盘数不一致,请确认一下。</p>}
           <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">性质(可选)</div>
+            <select
+              value={f.nature ?? ''}
+              onChange={(e) => setF((c) => ({ ...c, nature: (e.target.value || undefined) as ActivityInput['nature'] }))}
+              className="h-11 w-full rounded-xl bg-surface-2 px-2 text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+            >
+              <option value="">不限</option>
+              <option value="training">训练</option>
+              <option value="official">正式比赛</option>
+              <option value="friendly">友谊赛</option>
+              <option value="practice">练习赛</option>
+              <option value="serving">发球训练</option>
+              <option value="multiball">多球训练</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">对手(可选)</div>
+            <input
+              value={f.partners}
+              onChange={(e) => setF((c) => ({ ...c, partners: e.target.value }))}
+              placeholder="如:vs 老张 / 和小李双打"
+              className="h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line placeholder:text-ink-3 focus:ring-accent/50"
+            />
+          </div>
+          <div>
             <div className="mb-1.5 text-xs font-medium text-ink-3">比分(可选)</div>
             <input
               value={f.scoreText}
@@ -232,20 +277,96 @@ export function TennisFormPage() {
           </div>
         </Card>
 
-        {/* 其他 */}
+        {/* 盘数比分明细 */}
+        <Card className="space-y-3 !p-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-semibold text-ink-2">每一盘比分</div>
+            <button
+              onClick={() => setSets((cur) => [...cur, { a: undefined as unknown as number, b: undefined as unknown as number }])}
+              className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink-2 active:scale-95"
+            >
+              + 添加一盘
+            </button>
+          </div>
+          {sets.length === 0 && (
+            <p className="text-xs text-ink-3">可选。逐盘记比分(如 6-4),总盘数和胜负会自动算;不填也不影响只记胜负。</p>
+          )}
+          {sets.map((st, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <span className="num w-12 shrink-0 text-xs text-ink-3">Set {idx + 1}</span>
+              <input
+                value={Number.isFinite(st.a) ? st.a : ''}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d]/g, '')
+                  setSets((cur) => cur.map((x, i2) => (i2 === idx ? { ...x, a: v === '' ? (undefined as unknown as number) : parseInt(v, 10) } : x)))
+                }}
+                inputMode="numeric"
+                placeholder="6"
+                className="num h-10 flex-1 rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+              />
+              <span className="text-ink-3">-</span>
+              <input
+                value={Number.isFinite(st.b) ? st.b : ''}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d]/g, '')
+                  setSets((cur) => cur.map((x, i2) => (i2 === idx ? { ...x, b: v === '' ? (undefined as unknown as number) : parseInt(v, 10) } : x)))
+                }}
+                inputMode="numeric"
+                placeholder="4"
+                className="num h-10 flex-1 rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+              />
+              <button
+                onClick={() => setSets((cur) => cur.filter((_, i2) => i2 !== idx))}
+                className="rounded-lg p-1.5 text-ink-3 hover:text-danger"
+                aria-label={`删除第 ${idx + 1} 盘`}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </Card>
+
+        {/* 场地 */}
         <Card className="space-y-3.5 !p-4">
-          <div className="text-[13px] font-semibold text-ink-2">其他(全部可选)</div>
+          <div className="text-[13px] font-semibold text-ink-2">场地</div>
           <div>
-            <div className="mb-1.5 text-xs font-medium text-ink-3">对手 / 搭档</div>
-            <input
-              value={f.partners}
-              onChange={(e) => setF((c) => ({ ...c, partners: e.target.value }))}
-              placeholder="如:vs 老张 / 和小李双打"
-              className="h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line placeholder:text-ink-3 focus:ring-accent/50"
-            />
+            <div className="mb-1.5 text-xs font-medium text-ink-3">室内 / 室外(可选)</div>
+            <div className="flex rounded-xl bg-surface-2 p-1">
+              {(
+                [
+                  { v: 'outdoor', label: '室外' },
+                  { v: 'indoor', label: '室内' },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => setF((c) => ({ ...c, indoor: c.indoor === o.v ? undefined : o.v }))}
+                  className={
+                    'flex-1 rounded-lg py-2 text-sm font-medium transition-colors ' +
+                    (f.indoor === o.v ? 'bg-accent text-accent-ink' : 'text-ink-3')
+                  }
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div>
-            <div className="mb-1.5 text-xs font-medium text-ink-3">场地</div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">场地类型(可选)</div>
+            <select
+              value={f.surface ?? ''}
+              onChange={(e) => setF((c) => ({ ...c, surface: (e.target.value || undefined) as ActivityInput['surface'] }))}
+              className="h-11 w-full rounded-xl bg-surface-2 px-2 text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+            >
+              <option value="">不限</option>
+              <option value="hard">硬地</option>
+              <option value="clay">红土</option>
+              <option value="grass">草地</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">场地名称(可选)</div>
             <input
               value={f.venue}
               onChange={(e) => setF((c) => ({ ...c, venue: e.target.value }))}
@@ -253,6 +374,169 @@ export function TennisFormPage() {
               className="h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line placeholder:text-ink-3 focus:ring-accent/50"
             />
           </div>
+        </Card>
+
+        {/* 技术统计(全部可选,手动填写) */}
+        <Card className="space-y-3.5 !p-4">
+          <div className="text-[13px] font-semibold text-ink-2">技术统计</div>
+          <p className="text-xs text-ink-3">全部可选,手动填写;留空即不计入统计。</p>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">发球</div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {(
+                [
+                  { key: 'firstServeIn', label: '一发成功' },
+                  { key: 'firstServePoints', label: '一发得分' },
+                  { key: 'doubleFaults', label: '双误' },
+                  { key: 'aces', label: 'Ace' },
+                  { key: 'serveGames', label: '发球局' },
+                  { key: 'servePointsWon', label: '发球得分' },
+                ] as const
+              ).map((o) => (
+                <div key={o.key}>
+                  <div className="mb-1 text-center text-[10px] leading-tight text-ink-3">{o.label}</div>
+                  <input
+                    value={(technique[o.key] as number | undefined) ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\d]/g, '')
+                      setTechnique((c) => ({ ...c, [o.key]: v === '' ? undefined : parseInt(v, 10) }))
+                    }}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="num h-10 w-full rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">接发 / 网前</div>
+            <div className="grid grid-cols-3 gap-2.5">
+              {(
+                [
+                  { key: 'returnPointsWon', label: '接发得分' },
+                  { key: 'breakPoints', label: '破发点' },
+                  { key: 'breakConverted', label: '破发成功' },
+                  { key: 'netPointsWon', label: '网前得分' },
+                ] as const
+              ).map((o) => (
+                <div key={o.key}>
+                  <div className="mb-1 text-center text-[10px] leading-tight text-ink-3">{o.label}</div>
+                  <input
+                    value={(technique[o.key] as number | undefined) ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\d]/g, '')
+                      setTechnique((c) => ({ ...c, [o.key]: v === '' ? undefined : parseInt(v, 10) }))
+                    }}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="num h-10 w-full rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">击球</div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {(
+                [
+                  { key: 'winners', label: 'Winners 制胜分' },
+                  { key: 'unforcedErrors', label: '非受迫性失误' },
+                ] as const
+              ).map((o) => (
+                <div key={o.key}>
+                  <div className="mb-1 text-center text-[10px] leading-tight text-ink-3">{o.label}</div>
+                  <input
+                    value={(technique[o.key] as number | undefined) ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^\d]/g, '')
+                      setTechnique((c) => ({ ...c, [o.key]: v === '' ? undefined : parseInt(v, 10) }))
+                    }}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="num h-10 w-full rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* 体能数据(全部可选) */}
+        <Card className="space-y-3.5 !p-4">
+          <div className="text-[13px] font-semibold text-ink-2">体能数据</div>
+          <p className="text-xs text-ink-3">可选;没有设备数据就留空,不会生成任何数字。</p>
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                { key: 'runMinutes', label: '跑动时间(分钟)' },
+                { key: 'runDistanceM', label: '跑动距离(米)' },
+                { key: 'avgHr', label: '平均心率' },
+                { key: 'maxHr', label: '最大心率' },
+              ] as const
+            ).map((o) => (
+              <div key={o.key}>
+                <div className="mb-1.5 text-xs font-medium text-ink-3">{o.label}</div>
+                <input
+                  value={(fitness[o.key] as number | undefined) ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^\d]/g, '')
+                    setFitness((c) => ({ ...c, [o.key]: v === '' ? undefined : parseInt(v, 10) }))
+                  }}
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="num h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* 训练模式 */}
+        <Card className="space-y-3.5 !p-4">
+          <div className="text-[13px] font-semibold text-ink-2">训练模式(可选)</div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">训练类型(可多选)</div>
+            <div className="flex flex-wrap gap-1.5">
+              {(['发球', '正手', '反手', '截击', '高压球', '接发', '底线', '多球', '移动', '综合训练'] as const).map((t) => {
+                const sel = (f.trainingTypes ?? []).includes(t)
+                return (
+                  <button
+                    key={t}
+                    onClick={() =>
+                      setF((c) => ({
+                        ...c,
+                        trainingTypes: sel
+                          ? (c.trainingTypes ?? []).filter((x) => x !== t)
+                          : [...(c.trainingTypes ?? []), t],
+                      }))
+                    }
+                    className={
+                      'rounded-full px-3 py-1.5 text-[13px] font-medium transition-all active:scale-95 ' +
+                      (sel ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-ink-3')
+                    }
+                  >
+                    {t}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium text-ink-3">今天主要训练内容(可选)</div>
+            <input
+              value={f.trainingFocus}
+              onChange={(e) => setF((c) => ({ ...c, trainingFocus: e.target.value }))}
+              placeholder="如:发球 + 正手"
+              className="h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line placeholder:text-ink-3 focus:ring-accent/50"
+            />
+          </div>
+        </Card>
+
+        {/* 其他 */}
+        <Card className="space-y-3.5 !p-4">
+          <div className="text-[13px] font-semibold text-ink-2">其他(全部可选)</div>
           <div>
             <div className="mb-1.5 text-xs font-medium text-ink-3">主观强度 RPE(可选)</div>
             <div className="flex flex-wrap gap-1.5">
@@ -279,6 +563,7 @@ export function TennisFormPage() {
               rows={2}
               className="w-full resize-none rounded-xl bg-surface-2 p-3 text-[15px] outline-none ring-1 ring-line placeholder:text-ink-3 focus:ring-accent/50"
             />
+            <p className="mt-1.5 select-none text-right text-[11px] italic text-ink-3/70">今天有没有想三毛?</p>
           </div>
         </Card>
 
@@ -324,43 +609,12 @@ export function TennisPage() {
     [],
     undefined,
   )
-  const trend = useLiveQuery(async () => {
-    const { getSportMonthlyTrend } = await import('@/services/activity')
-    return getSportMonthlyTrend('tennis', 6)
+  const statsData = useLiveQuery(async () => {
+    const { getTennisStats, getTennisMonthlyTrend } = await import('@/services/activity')
+    return { stats: await getTennisStats(), trend: await getTennisMonthlyTrend(6) }
   }, [], undefined)
-
-  const stats = useMemo(() => {
-    const all = sessions ?? []
-    let totalMinutes = 0
-    let setsWon = 0
-    let setsLost = 0
-    let wins = 0
-    let losses = 0
-    const month = new Date().toISOString().slice(0, 7)
-    let monthCount = 0
-    for (const s of all) {
-      totalMinutes += s.durationMin ?? 0
-      setsWon += s.score?.gamesWon ?? 0
-      setsLost += s.score?.gamesLost ?? 0
-      const w = s.score?.gamesWon ?? 0
-      const l = s.score?.gamesLost ?? 0
-      if (w > 0 || l > 0) {
-        if (w > l) wins++
-        else if (l > w) losses++
-      }
-      if (s.date.startsWith(month)) monthCount++
-    }
-    return {
-      total: all.length,
-      totalMinutes,
-      setsWon,
-      setsLost,
-      winRate: setsWon + setsLost > 0 ? Math.round((setsWon / (setsWon + setsLost)) * 1000) / 10 : null,
-      wins,
-      losses,
-      monthCount,
-    }
-  }, [sessions])
+  const trend = statsData?.trend
+  const stats = statsData?.stats
 
   return (
     <div className="min-h-dvh overflow-clip isolate relative bg-bg pb-28">
@@ -384,28 +638,46 @@ export function TennisPage() {
         <Card className="!p-5">
           <div className="grid grid-cols-2 gap-y-4 text-center">
             <div>
-              <div className="num text-2xl font-bold">{sessions ? String(stats.total) : '…'}</div>
+              <div className="num text-2xl font-bold">{stats ? String(stats.totalSessions) : '…'}</div>
               <div className="mt-0.5 text-[11px] text-ink-3">总场次</div>
             </div>
             <div>
-              <div className="num text-2xl font-bold">{sessions ? fmtHours(stats.totalMinutes) : '…'}</div>
-              <div className="mt-0.5 text-[11px] text-ink-3">总时长</div>
+              <div className="num text-2xl font-bold">{stats ? fmtHours(stats.totalMinutes) : '…'}</div>
+              <div className="mt-0.5 text-[11px] text-ink-3">总时长{stats && stats.avgMinutes !== null ? ` · 均 ${stats.avgMinutes}分` : ""}</div>
             </div>
             <div>
               <div className="num text-2xl font-bold">
-                {stats.setsWon + stats.setsLost > 0 ? `${stats.setsWon}:${stats.setsLost}` : '—'}
+                {stats && stats.setsWon + stats.setsLost > 0 ? `${stats.setsWon}:${stats.setsLost}` : '—'}
               </div>
               <div className="mt-0.5 text-[11px] text-ink-3">盘数 胜:负</div>
             </div>
             <div>
-              <div className="num text-2xl font-bold">{stats.winRate !== null ? `${stats.winRate}%` : '—'}</div>
-              <div className="mt-0.5 text-[11px] text-ink-3">盘胜率</div>
+              <div className="num text-2xl font-bold">{stats?.matchWinRate !== null && stats !== undefined ? `${stats.matchWinRate}%` : '—'}</div>
+              <div className="mt-0.5 text-[11px] text-ink-3">场胜率</div>
             </div>
           </div>
-          {stats.total > 0 && (
+          {stats && stats.totalSessions > 0 && (
             <div className="num mt-4 flex justify-around rounded-2xl bg-surface-2 py-2.5 text-center text-xs text-ink-3">
-              <span>胜场 {stats.wins} · 负场 {stats.losses}</span>
-              <span>本月 {stats.monthCount} 次</span>
+              <span>比赛 {stats.matchCount} · 训练 {stats.trainingCount}</span>
+              <span>本周 {stats.weekSessions} 次</span>
+              <span>本月 {stats.monthSessions} 次</span>
+            </div>
+          )}
+          {stats && stats.aces + stats.doubleFaults + stats.winners + stats.unforcedErrors > 0 && (
+            <div className="num mt-3 grid grid-cols-4 gap-2 text-center">
+              {(
+                [
+                  { label: 'Ace', value: stats.aces },
+                  { label: '双误', value: stats.doubleFaults },
+                  { label: '制胜分', value: stats.winners },
+                  { label: '失误', value: stats.unforcedErrors },
+                ] as const
+              ).map((o) => (
+                <div key={o.label} className="rounded-2xl bg-surface-2 py-2.5">
+                  <div className="num text-lg font-bold">{o.value}</div>
+                  <div className="mt-0.5 text-[10px] text-ink-3">{o.label}</div>
+                </div>
+              ))}
             </div>
           )}
         </Card>
@@ -453,8 +725,14 @@ export function TennisPage() {
                     <div className="num mt-0.5 truncate text-[13px] text-ink-3">
                       {[
                         s.playType === 'singles' ? '单打' : s.playType === 'doubles' ? '双打' : null,
-                        (s.score?.gamesTotal ?? 0) > 0 ? `${s.score?.gamesTotal} 盘 · 胜 ${s.score?.gamesWon} : 负 ${s.score?.gamesLost}` : null,
-                        s.scoreText,
+                        s.sets && s.sets.length > 0
+                          ? `${s.sets.length} 盘 · 胜 ${s.sets.filter((x) => x.a > x.b).length} : 负 ${s.sets.filter((x) => x.b > x.a).length}`
+                          : (s.score?.gamesTotal ?? 0) > 0
+                            ? `${s.score?.gamesTotal} 盘 · 胜 ${s.score?.gamesWon} : 负 ${s.score?.gamesLost}`
+                            : null,
+                        s.sets?.length
+                          ? s.sets.map((x) => `${Number.isFinite(x.a) ? x.a : '?'}-${Number.isFinite(x.b) ? x.b : '?'}`).join(' ')
+                          : null,
                         s.durationMin ? `${s.durationMin} 分钟` : null,
                         s.venue,
                       ]

@@ -28,6 +28,15 @@ export interface ActivityInput {
   poolLengthM?: number
   laps?: number
   calories?: number
+  /* ---- 网球 ---- */
+  indoor?: 'indoor' | 'outdoor'
+  surface?: 'hard' | 'clay' | 'grass' | 'other'
+  nature?: 'training' | 'official' | 'friendly' | 'practice' | 'serving' | 'multiball' | 'other'
+  trainingTypes?: string[]
+  trainingFocus?: string
+  sets?: { a: number; b: number }[]
+  technique?: ActivitySession['technique']
+  fitness?: ActivitySession['fitness']
   rpe?: number
   notes?: string
 }
@@ -54,6 +63,15 @@ export async function createActivity(input: ActivityInput): Promise<ActivitySess
     poolLengthM: input.poolLengthM,
     laps: input.laps,
     calories: input.calories,
+    /* ---- 网球 ---- */
+    indoor: input.indoor,
+    surface: input.surface,
+    nature: input.nature,
+    trainingTypes: input.trainingTypes,
+    trainingFocus: input.trainingFocus,
+    sets: input.sets,
+    technique: input.technique,
+    fitness: input.fitness,
     rpe: input.rpe,
     notes: input.notes,
     createdAt: now,
@@ -235,6 +253,9 @@ const ACTIVITY_PREVIEW: Partial<Record<NonStrengthSport, (s: ActivitySession) =>
       if ((g.gamesWon ?? 0) > 0 || (g.gamesLost ?? 0) > 0) parts.push(`胜${g.gamesWon ?? 0}负${g.gamesLost ?? 0}`)
     }
     if (s.scoreText) parts.push(s.scoreText)
+    if (s.surface === 'hard') parts.push('硬地')
+    else if (s.surface === 'clay') parts.push('红土')
+    else if (s.surface === 'grass') parts.push('草地')
     return parts.length ? parts.join(' · ') : undefined
   },
 }
@@ -340,6 +361,186 @@ export async function getSwimMonthlyDistanceTrend(
       month: key,
       sessions: rows.length,
       distanceM: rows.reduce((acc, r) => acc + (r.distanceM ?? 0), 0),
+    })
+  }
+  return out
+}
+
+/* =============== 网球(第二阶段) =============== */
+
+/** 从 sets[] 推导盘数胜负:每盘 a>b 记胜盘 */
+export function setsTally(sets?: { a: number; b: number }[]): { total: number; won: number; lost: number } {
+  const won = (sets ?? []).filter((s) => s.a > s.b).length
+  const lost = (sets ?? []).filter((s) => s.b > s.a).length
+  return { total: won + lost, won, lost }
+}
+
+export interface TennisStats {
+  totalSessions: number
+  matchCount: number
+  trainingCount: number
+  totalMinutes: number
+  avgMinutes: number | null
+  setsTotal: number
+  setsWon: number
+  setsLost: number
+  setWinRate: number | null
+  matchWins: number
+  matchLosses: number
+  matchWinRate: number | null
+  aces: number
+  doubleFaults: number
+  winners: number
+  unforcedErrors: number
+  breakConverted: number
+  weekSessions: number
+  monthSessions: number
+  monthMinutes: number
+  yearSessions: number
+  yearMinutes: number
+}
+
+/** 场胜负:优先 sets 推导,其次 score.gamesWon/Lost,否则不计 */
+function matchResultOf(s: ActivitySession): 'win' | 'loss' | 'draw' | null {
+  const sets = setsTally(s.sets)
+  if (sets.won > 0 || sets.lost > 0) {
+    if (sets.won > sets.lost) return 'win'
+    if (sets.lost > sets.won) return 'loss'
+    return 'draw'
+  }
+  const w = s.score?.gamesWon ?? 0
+  const l = s.score?.gamesLost ?? 0
+  if (w > 0 || l > 0) {
+    if (w > l) return 'win'
+    if (l > w) return 'loss'
+    return 'draw'
+  }
+  return null
+}
+
+/** 本周一 00:00 的日期字符串 */
+function weekStartDateStr(): string {
+  const d = new Date()
+  const day = (d.getDay() + 6) % 7 // 周一=0
+  d.setDate(d.getDate() - day)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export async function getTennisStats(): Promise<TennisStats> {
+  const all = await listActivities({ sport: 'tennis' })
+  const month = currentMonthKey()
+  const year = todayStr().slice(0, 4)
+  const weekStart = weekStartDateStr()
+
+  const st: TennisStats = {
+    totalSessions: all.length,
+    matchCount: 0,
+    trainingCount: 0,
+    totalMinutes: 0,
+    avgMinutes: null,
+    setsTotal: 0,
+    setsWon: 0,
+    setsLost: 0,
+    setWinRate: null,
+    matchWins: 0,
+    matchLosses: 0,
+    matchWinRate: null,
+    aces: 0,
+    doubleFaults: 0,
+    winners: 0,
+    unforcedErrors: 0,
+    breakConverted: 0,
+    weekSessions: 0,
+    monthSessions: 0,
+    monthMinutes: 0,
+    yearSessions: 0,
+    yearMinutes: 0,
+  }
+  let decided = 0
+  for (const s of all) {
+    st.totalMinutes += s.durationMin ?? 0
+    // 盘数:优先 sets 明细推导;无明细时退回 score 容器(兼容只记胜负的旧记录)
+    const tally = setsTally(s.sets)
+    if ((s.sets?.length ?? 0) > 0) {
+      st.setsWon += tally.won
+      st.setsLost += tally.lost
+      st.setsTotal += tally.total
+    } else {
+      const w = s.score?.gamesWon ?? 0
+      const l = s.score?.gamesLost ?? 0
+      st.setsWon += w
+      st.setsLost += l
+      st.setsTotal += s.score?.gamesTotal ?? 0
+    }
+    const result = matchResultOf(s)
+    if (result === 'win') st.matchWins++
+    if (result === 'loss') st.matchLosses++
+    if (result) decided++
+    if (s.nature === 'official' || s.isMatch === 1) st.matchCount++
+    else if (s.nature && s.nature !== 'other') st.trainingCount++
+    const t = s.technique
+    if (t) {
+      st.aces += t.aces ?? 0
+      st.doubleFaults += t.doubleFaults ?? 0
+      st.winners += t.winners ?? 0
+      st.unforcedErrors += t.unforcedErrors ?? 0
+      st.breakConverted += t.breakConverted ?? 0
+    }
+    if (s.date >= weekStart) st.weekSessions++
+    if (s.date.startsWith(month)) {
+      st.monthSessions++
+      st.monthMinutes += s.durationMin ?? 0
+    }
+    if (s.date.startsWith(year)) {
+      st.yearSessions++
+      st.yearMinutes += s.durationMin ?? 0
+    }
+  }
+  st.avgMinutes = st.totalSessions ? Math.round(st.totalMinutes / st.totalSessions) : null
+  st.setWinRate = st.setsWon + st.setsLost > 0 ? Math.round((st.setsWon / (st.setsWon + st.setsLost)) * 1000) / 10 : null
+  st.matchWinRate = decided > 0 ? Math.round((st.matchWins / decided) * 1000) / 10 : null
+  return st
+}
+
+/** 网球月度趋势(场次/时长/盘胜率/Ace/双误/Winners/UE) */
+export async function getTennisMonthlyTrend(
+  months = 6,
+): Promise<{ month: string; sessions: number; minutes: number; setWinRate: number | null; aces: number; doubleFaults: number; winners: number; unforcedErrors: number }[]> {
+  const now = new Date()
+  const all = await listActivities({ sport: 'tennis' })
+  const out: { month: string; sessions: number; minutes: number; setWinRate: number | null; aces: number; doubleFaults: number; winners: number; unforcedErrors: number }[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const rows = all.filter((a) => a.date.startsWith(key))
+    let sw = 0
+    let sl = 0
+    let aces = 0
+    let dfs = 0
+    let win = 0
+    let ue = 0
+    for (const r of rows) {
+      if ((r.sets?.length ?? 0) > 0) {
+        sw += setsTally(r.sets).won
+        sl += setsTally(r.sets).lost
+      } else {
+        sw += r.score?.gamesWon ?? 0
+        sl += r.score?.gamesLost ?? 0
+      }
+      aces += r.technique?.aces ?? 0
+      dfs += r.technique?.doubleFaults ?? 0
+      win += r.technique?.winners ?? 0
+      ue += r.technique?.unforcedErrors ?? 0
+    }
+    out.push({
+      month: key,
+      sessions: rows.length,
+      minutes: rows.reduce((acc, r) => acc + (r.durationMin ?? 0), 0),
+      setWinRate: sw + sl > 0 ? Math.round((sw / (sw + sl)) * 1000) / 10 : null,
+      aces,
+      doubleFaults: dfs,
+      winners: win,
+      unforcedErrors: ue,
     })
   }
   return out

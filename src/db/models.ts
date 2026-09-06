@@ -127,6 +127,41 @@ export interface ActivitySession {
   score?: ActivityScore
   /** 比分文本(网球等,可选,如「6-4 3-6 7-5」) */
   scoreText?: string
+  /* ---- 网球(全部可选) ---- */
+  /** 室内 / 室外 */
+  indoor?: 'indoor' | 'outdoor'
+  /** 场地类型 */
+  surface?: 'hard' | 'clay' | 'grass' | 'other'
+  /** 记录性质:训练 / 正式比赛 / 友谊赛 / 练习赛 / 发球训练 / 多球训练 / 其他 */
+  nature?: 'training' | 'official' | 'friendly' | 'practice' | 'serving' | 'multiball' | 'other'
+  /** 训练模式多选(发球/正手/反手/截击/…) */
+  trainingTypes?: string[]
+  /** 今天主要训练内容(自由文本) */
+  trainingFocus?: string
+  /** 多盘比分:Set 1: A-B(可只填一侧) */
+  sets?: { a: number; b: number }[]
+  /** 技术统计(全部手动填写,全可选) */
+  technique?: {
+    firstServeIn?: number
+    firstServePoints?: number
+    doubleFaults?: number
+    aces?: number
+    serveGames?: number
+    servePointsWon?: number
+    returnPointsWon?: number
+    breakPoints?: number
+    breakConverted?: number
+    netPointsWon?: number
+    winners?: number
+    unforcedErrors?: number
+  }
+  /** 体能数据(手动记录,全可选) */
+  fitness?: {
+    runMinutes?: number
+    runDistanceM?: number
+    avgHr?: number
+    maxHr?: number
+  }
   /* ---- 游泳字段(全部可选) ---- */
   /** 距离,底层统一为米 */
   distanceM?: number

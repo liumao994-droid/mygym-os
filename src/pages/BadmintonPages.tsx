@@ -559,6 +559,28 @@ export function ActivityDetailSheet({
               {session.sport === 'tennis' && session.scoreText ? (
                 <Detail label="比分" value={session.scoreText} />
               ) : null}
+              {session.sport === 'tennis' && session.indoor && (
+                <Detail label="室内外" value={session.indoor === 'indoor' ? '室内' : '室外'} />
+              )}
+              {session.sport === 'tennis' && session.surface && (
+                <Detail
+                  label="场地类型"
+                  value={session.surface === 'hard' ? '硬地' : session.surface === 'clay' ? '红土' : session.surface === 'grass' ? '草地' : '其他'}
+                />
+              )}
+              {session.sport === 'tennis' && session.nature && (
+                <Detail
+                  label="性质"
+                  value={
+                    { training: '训练', official: '正式比赛', friendly: '友谊赛', practice: '练习赛', serving: '发球训练', multiball: '多球训练', other: '其他' }[
+                      session.nature
+                    ]
+                  }
+                />
+              )}
+              {session.sport === 'tennis' && session.trainingTypes && session.trainingTypes.length > 0 && (
+                <Detail label="训练类型" value={session.trainingTypes.join(' + ')} />
+              )}
               {session.sport === 'badminton' && session.score?.pointsTotal ? (
                 <Detail label="总得分" value={String(session.score.pointsTotal)} />
               ) : null}
@@ -584,6 +606,57 @@ export function ActivityDetailSheet({
               {session.rpe ? <Detail label="RPE" value={String(session.rpe)} /> : null}
               {session.isMatch === 1 && <Detail label="性质" value="比赛" />}
             </div>
+            {session.sets && session.sets.length > 0 && (
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="mb-1.5 text-[11px] text-ink-3">每盘比分</div>
+                <div className="num flex flex-wrap gap-2">
+                  {session.sets.map((x, i) => (
+                    <span key={i} className="num rounded-lg bg-surface-2 px-2.5 py-1 text-[13px] font-medium">
+                      S{i + 1}: {Number.isFinite(x.a) ? x.a : '?'}-{Number.isFinite(x.b) ? x.b : '?'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {session.technique && Object.values(session.technique).some((v) => v !== undefined && v !== null) && (
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="mb-1.5 text-[11px] text-ink-3">技术统计</div>
+                <div className="num grid grid-cols-3 gap-2 text-center">
+                  {(
+                    [
+                      { label: 'Ace', key: 'aces' },
+                      { label: '双误', key: 'doubleFaults' },
+                      { label: '制胜分', key: 'winners' },
+                      { label: '失误', key: 'unforcedErrors' },
+                      { label: '破发成功', key: 'breakConverted' },
+                      { label: '一发成功', key: 'firstServeIn' },
+                    ] as const
+                  ).map((o) => {
+                    const v = session.technique?.[o.key]
+                    return v === undefined || v === null ? null : (
+                      <div key={o.key} className="rounded-xl bg-surface-2 py-2">
+                        <div className="num text-[15px] font-bold">{v}</div>
+                        <div className="text-[10px] text-ink-3">{o.label}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {session.fitness && Object.values(session.fitness).some((v) => v !== undefined && v !== null) && (
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="mb-1.5 text-[11px] text-ink-3">体能</div>
+                <div className="num flex flex-wrap gap-2">
+                  {session.fitness.runMinutes ? <span className="rounded-lg bg-surface-2 px-2 py-1 text-xs">跑动 {session.fitness.runMinutes} 分</span> : null}
+                  {session.fitness.runDistanceM ? <span className="rounded-lg bg-surface-2 px-2 py-1 text-xs">跑动 {session.fitness.runDistanceM} m</span> : null}
+                  {session.fitness.avgHr ? <span className="rounded-lg bg-surface-2 px-2 py-1 text-xs">均心率 {session.fitness.avgHr}</span> : null}
+                  {session.fitness.maxHr ? <span className="rounded-lg bg-surface-2 px-2 py-1 text-xs">最大心率 {session.fitness.maxHr}</span> : null}
+                </div>
+              </div>
+            )}
+            {session.trainingFocus && session.sport === 'tennis' && (
+              <p className="mt-3 text-sm text-ink-2">训练内容:{session.trainingFocus}</p>
+            )}
             {session.venue && (
               <p className="mt-3 border-t border-line pt-3 text-sm text-ink-2">场地:{session.venue}</p>
             )}

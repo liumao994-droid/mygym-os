@@ -371,7 +371,7 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
     const a = state.activities[state.activities.length - 1]
     const meta = SPORT_META[a.sport as keyof typeof SPORT_META]
     return (
-      <Card className="!p-5" onClick={() => navigate(a.sport === 'badminton' ? `/badminton/${a.id}` : `/swimming/${a.id}/edit`)}>
+      <Card className="!p-5" onClick={() => navigate(a.sport === 'badminton' ? `/badminton/${a.id}` : a.sport === 'tennis' ? `/tennis/${a.id}/edit` : `/swimming/${a.id}/edit`)}>
         <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: meta.color }}>
           <span className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ backgroundColor: `${meta.color}22` }}>
             {meta.emoji}
@@ -380,13 +380,15 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
         </div>
         <div className="mt-2 text-2xl font-bold">{meta.name}</div>
         <div className="num mt-1 text-sm text-ink-3">
-          {a.sport === 'badminton' && a.playType ? (a.playType === 'singles' ? '单打' : '双打') : ''}
+          {(a.sport === 'badminton' || a.sport === 'tennis') && a.playType ? (a.playType === 'singles' ? '单打' : '双打') : ''}
           {a.sport === 'badminton' && a.score?.gamesTotal ? ` · ${a.score.gamesTotal} 局` : ''}
+          {a.sport === 'tennis' && (a.score?.gamesTotal ?? 0) > 0 ? ` · ${a.score?.gamesTotal} 盘` : ''}
+          {a.sport === 'tennis' && a.scoreText ? ` · ${a.scoreText}` : ''}
           {a.sport === 'swimming' && a.distanceM ? ` · ${a.distanceM >= 1000 ? (a.distanceM / 1000).toFixed(2) + ' km' : a.distanceM + ' m'}` : ''}
           {a.durationMin ? ` · ${fmtHoursMin(a.durationMin)}` : ''}
           {state.activities.length > 1 ? ` · 共 ${state.activities.length} 条记录` : ''}
         </div>
-        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(a.sport === 'badminton' ? '/badminton' : '/swimming')}>
+        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(a.sport === 'badminton' ? '/badminton' : a.sport === 'tennis' ? '/tennis' : '/swimming')}>
           查看统计
         </Button>
       </Card>
