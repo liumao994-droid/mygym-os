@@ -1,0 +1,200 @@
+@import 'tailwindcss';
+
+/* ============ MyGym OS Design Tokens ============ */
+/* Deep Sea Blue & Soft Milk:高级、干净、现代、克制。
+   深色 = 深海蓝(不用纯黑);浅色 = 柔奶白(不用纯白);
+   品牌蓝 #122E8A 只负责按钮/Active/重点数字/PR/1RM/图表重点。 */
+
+@custom-variant light (&:where(.light, .light *));
+
+:root {
+  /* surfaces — 深海蓝,不用纯黑 */
+  --bg: #081331;
+  --bg-elev: #14265f;
+  --surface: #0d1b4a;
+  --surface-2: #12224f;
+  --surface-3: #1a2e68;
+  --border: #263a70;
+  --border-strong: #33488a;
+
+  /* text */
+  --text-1: #f5efea;
+  --text-2: #c9d1e5;
+  --text-3: #8994ae;
+
+  /* accent — 品牌蓝。深色下用 Primary Light 保证可读,浅色下用品牌主色 */
+  --accent: #6f8fd8;
+  --accent-ink: #0a1636;
+  --accent-hi: #6f8fd8;
+  --accent-deep: #122e8a;
+  --accent-dim: rgba(111, 143, 216, 0.14);
+
+  /* semantic — 只在必要时出现,克制 */
+  --grow: #6f8fd8;
+  --pr: #6f8fd8;
+  --rest: #8ca0d0;
+  --warn: #c9a15e;
+  --danger: #cf6f6f;
+
+  --card-shadow: 0 1px 2px rgba(2, 8, 28, 0.4), 0 10px 28px -18px rgba(2, 8, 28, 0.55);
+  --nav-blur: rgba(8, 19, 49, 0.86);
+}
+
+.light {
+  /* surfaces — 柔奶白,不用纯白做背景 */
+  --bg: #f5efea;
+  --bg-elev: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1ece6;
+  --surface-3: #e6e1da;
+  --border: #e1ddd7;
+  --border-strong: #cfc9c0;
+
+  --text-1: #172033;
+  --text-2: #687080;
+  --text-3: #8a8f9c;
+
+  /* accent — 品牌主色 #122E8A,奶白/白做按钮文字 */
+  --accent: #122e8a;
+  --accent-ink: #ffffff;
+  --accent-hi: #122e8a;
+  --accent-deep: #0d2266;
+  --accent-dim: rgba(18, 46, 138, 0.08);
+
+  --grow: #122e8a;
+  --pr: #122e8a;
+  --rest: #62719f;
+  --warn: #a87f3d;
+  --danger: #b5504e;
+
+  --card-shadow: 0 1px 2px rgba(23, 32, 51, 0.04), 0 10px 26px -20px rgba(23, 32, 51, 0.18);
+  --nav-blur: rgba(245, 239, 234, 0.88);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text-1);
+  --color-ink-2: var(--text-2);
+  --color-ink-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-hi: var(--accent-hi);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-dim: var(--accent-dim);
+  --color-grow: var(--grow);
+  --color-pr: var(--pr);
+  --color-rest: var(--rest);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'HarmonyOS Sans SC',
+    'Noto Sans SC', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  --radius-card: 1.25rem;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior-y: none;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 数字统一等宽,趋势/统计更整齐 */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/* iOS 安全区 */
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+}
+.safe-top {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+/* 隐藏 number input 的 spinner,移动端键盘友好 */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* 细滚动条(桌面端) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 骨架屏微光 */
+@keyframes shimmer {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+.skeleton {
+  background: var(--surface-2);
+  border-radius: 10px;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* 页面进入动画(配合 framer-motion 使用;这里兜底无 JS 场景) */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
