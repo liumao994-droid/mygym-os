@@ -1,6 +1,6 @@
 import { db } from '@/db/db'
 import { addDays, fmtMonthCN, fmtNum, parseLocalDate, toLocalDate } from '@/lib/util'
-import { setVolume } from './calc'
+import { estimate1RM, setVolume } from './calc'
 import {
   countSummary,
   getMonthPRs,
@@ -205,7 +205,6 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
     completedSessionIds.has(s.sessionId),
   )
   const exMap = new Map((await db.exercises.toArray()).map((e) => [e.id, e]))
-  const { estimate1RM } = await import('./calc')
   const bestByMonthByEx = new Map<string, Map<string, { est: number; w: number; r: number }>>()
   for (const s of allSets) {
     if (s.weightType !== 'weight' && s.weightType !== 'dumbbell') continue

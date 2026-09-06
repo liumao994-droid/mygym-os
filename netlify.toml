@@ -1,0 +1,21 @@
+# MyGym OS — Netlify 静态部署配置
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# 应用使用 HashRouter(#/ 路由),无需 SPA rewrite;
+# 此规则仅保证直接访问根路径时返回应用入口。
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
