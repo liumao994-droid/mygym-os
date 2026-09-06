@@ -1,0 +1,33 @@
+# push 到 main → 自动构建并发布到 Netlify 正式站点
+name: Deploy to Netlify
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # 允许在 GitHub 页面手动触发
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Deploy to Netlify (production)
+        run: npx netlify-cli@latest deploy --prod --dir dist --auth "$NETLIFY_AUTH_TOKEN" --site "$NETLIFY_SITE_ID"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
