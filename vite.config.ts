@@ -36,4 +36,9 @@ export default defineConfig({
     target: 'es2020',
     chunkSizeWarningLimit: 1200,
   },
+  /* 本地预览服务器放行隧道域名,便于公网演示;
+     真实部署为纯静态托管,无此限制 */
+  preview: {
+    allowedHosts: true,
+  },
 })
