@@ -98,8 +98,12 @@ export async function countSummary(start: string, end: string): Promise<SummaryC
 
 /** 全库总训练量(游标聚合,不整表载入) */
 export async function sumAllVolume(): Promise<number> {
+  const completedSessionIds = new Set(
+    (await db.sessions.where('status').equals('completed').toArray()).map((session) => session.id),
+  )
   let total = 0
   await db.sets.each((s) => {
+    if (!completedSessionIds.has(s.sessionId)) return
     total += setVolume(s)
   })
   return total
@@ -213,6 +217,7 @@ export async function getPartDistribution(start: string, end: string): Promise<P
     .between(start, end, true, true)
     .and((s) => s.status === 'completed')
     .toArray()
+  const completedSessionIds = new Set(sessions.map((s) => s.id))
   const sets = await db.sets.where('date').between(start, end, true, true).toArray()
   const exs = await db.exercises.toArray()
   const exMap = new Map(exs.map((e) => [e.id, e]))
@@ -231,6 +236,7 @@ export async function getPartDistribution(start: string, end: string): Promise<P
     }
   }
   for (const st of sets) {
+    if (!completedSessionIds.has(st.sessionId)) continue
     const ex = exMap.get(st.exerciseId)
     if (!ex) continue
     const row = result.get(ex.bodyPart)
@@ -303,7 +309,15 @@ export async function getExerciseMonthStats(exerciseId: string, key: string): Pr
     .between([exerciseId, start], [exerciseId, end + '￿'], true, true)
     .toArray()
   if (!sets.length) return null
-  const sessionIds = new Set((await db.sessions.where('date').between(start, end, true, true).toArray()).map((s) => s.id))
+  const sessionIds = new Set(
+    (
+      await db.sessions
+        .where('date')
+        .between(start, end, true, true)
+        .and((s) => s.status === 'completed')
+        .toArray()
+    ).map((s) => s.id),
+  )
   const valid = sets.filter((s) => sessionIds.has(s.sessionId))
   if (!valid.length) return null
 
@@ -398,8 +412,12 @@ export async function getExerciseTrend(exerciseId: string, limitDays?: number): 
   } else {
     sets = await db.sets.where('exerciseId').equals(exerciseId).toArray()
   }
+  const completedSessionIds = new Set(
+    (await db.sessions.where('status').equals('completed').toArray()).map((session) => session.id),
+  )
   const bySession = new Map<string, TrendPoint & { firstSet: number }>()
   for (const s of sets) {
+    if (!completedSessionIds.has(s.sessionId)) continue
     const agg = bySession.get(s.sessionId) ?? {
       date: s.date,
       weight: 0,
@@ -475,7 +493,11 @@ export interface ExerciseUsage {
 
 export async function getExerciseUsageMap(): Promise<Map<string, ExerciseUsage>> {
   const map = new Map<string, ExerciseUsage>()
+  const completedSessionIds = new Set(
+    (await db.sessions.where('status').equals('completed').toArray()).map((session) => session.id),
+  )
   await db.sets.each((s) => {
+    if (!completedSessionIds.has(s.sessionId)) return
     const u = map.get(s.exerciseId) ?? { exerciseId: s.exerciseId, lastUsed: '', useCount: 0, bestWeight: 0, bestEst1rm: 0 }
     u.useCount++
     if (s.date > u.lastUsed) u.lastUsed = s.date
@@ -490,11 +512,9 @@ export async function getExerciseUsageMap(): Promise<Map<string, ExerciseUsage>>
 /* =============== 会话含月份(时间线分页) =============== */
 
 export async function getSessionMonths(): Promise<string[]> {
-  const dates = await db.sessions.orderBy('date').keys()
+  const sessions = await db.sessions.where('status').equals('completed').toArray()
   const months = new Set<string>()
-  for (const d of dates) {
-    if (typeof d === 'string') months.add(monthKey(d))
-  }
+  for (const session of sessions) months.add(monthKey(session.date))
   const restRows = await db.dailyStatuses.toArray()
   for (const r of restRows) months.add(monthKey(r.date))
   return [...months].sort().reverse()

@@ -116,6 +116,37 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     throw new Error('不是 MyGym OS 的备份文件')
   }
   const d = backup.data
+  const requiredCollections = ['exercises', 'sessions', 'workoutExercises', 'sets'] as const
+  if (requiredCollections.some((key) => !Array.isArray(d[key]))) {
+    throw new Error('备份文件缺少必要字段')
+  }
+  const exerciseIdMap = new Map<string, string>()
+  if (mode === 'merge') {
+    const existingDefaults = new Map(
+      (await db.exercises.toArray())
+        .filter((exercise) => !exercise.isCustom)
+        .map((exercise) => [`${exercise.name}\u0000${exercise.bodyPart}`, exercise.id]),
+    )
+    for (const exercise of d.exercises) {
+      if (exercise.isCustom) continue
+      const existingId = existingDefaults.get(`${exercise.name}\u0000${exercise.bodyPart}`)
+      if (existingId && existingId !== exercise.id) exerciseIdMap.set(exercise.id, existingId)
+    }
+  }
+  const remapExerciseId = (id: string): string => exerciseIdMap.get(id) ?? id
+  const exercises = d.exercises.map((exercise) => ({ ...exercise, id: remapExerciseId(exercise.id) }))
+  const workoutExercises = d.workoutExercises?.map((item) => ({ ...item, exerciseId: remapExerciseId(item.exerciseId) }))
+  const sets = d.sets?.map((set) => ({ ...set, exerciseId: remapExerciseId(set.exerciseId) }))
+  const templates = d.templates?.map((template) => ({
+    ...template,
+    items: template.items.map((item) => ({ ...item, exerciseId: remapExerciseId(item.exerciseId) })),
+  }))
+  const personalRecords = d.personalRecords?.map((record) => ({
+    ...record,
+    id: `${remapExerciseId(record.exerciseId)}:${record.type}`,
+    exerciseId: remapExerciseId(record.exerciseId),
+  }))
+  const prEvents = d.prEvents?.map((event) => ({ ...event, exerciseId: remapExerciseId(event.exerciseId) }))
   if (mode === 'replace') {
     await db.transaction(
       'rw',
@@ -139,14 +170,14 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     'rw',
     [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.appState],
     async () => {
-      if (d.exercises) await db.exercises.bulkPut(d.exercises)
+      if (exercises) await db.exercises.bulkPut(exercises)
       if (d.sessions) await db.sessions.bulkPut(d.sessions)
-      if (d.workoutExercises) await db.workoutExercises.bulkPut(d.workoutExercises)
-      if (d.sets) await db.sets.bulkPut(d.sets)
+      if (workoutExercises) await db.workoutExercises.bulkPut(workoutExercises)
+      if (sets) await db.sets.bulkPut(sets)
       if (d.dailyStatuses) await db.dailyStatuses.bulkPut(d.dailyStatuses)
-      if (d.templates) await db.templates.bulkPut(d.templates)
-      if (d.personalRecords) await db.personalRecords.bulkPut(d.personalRecords)
-      if (d.prEvents) await db.prEvents.bulkPut(d.prEvents)
+      if (templates) await db.templates.bulkPut(templates)
+      if (personalRecords) await db.personalRecords.bulkPut(personalRecords)
+      if (prEvents) await db.prEvents.bulkPut(prEvents)
       if (d.appState) await db.appState.bulkPut(d.appState)
     },
   )

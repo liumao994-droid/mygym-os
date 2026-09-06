@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode, type ButtonHTMLAttributes } from 'react'
 import { motion } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/util'
 
 /* =============== Card =============== */
@@ -224,7 +225,7 @@ export function Sheet({
   }, [open])
 
   if (!open) return null
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <motion.div
         initial={{ opacity: 0 }}
@@ -255,7 +256,8 @@ export function Sheet({
           {children}
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

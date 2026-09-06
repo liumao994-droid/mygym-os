@@ -62,10 +62,15 @@ export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
   // 周分布
   const weeklyBars: MonthlyReport['weeklyBars'] = []
   const daysInMonth = new Date(y, m, 0).getDate()
-  const sessions = (
-    await db.sessions.where('date').between(start, end, true, true).and((s) => s.status === 'completed').toArray()
-  ).map((s) => ({ date: s.date }))
-  const monthSets = await db.sets.where('date').between(start, end, true, true).toArray()
+  const sessions = await db.sessions
+    .where('date')
+    .between(start, end, true, true)
+    .and((s) => s.status === 'completed')
+    .toArray()
+  const completedSessionIds = new Set(sessions.map((s) => s.id))
+  const monthSets = (await db.sets.where('date').between(start, end, true, true).toArray()).filter((s) =>
+    completedSessionIds.has(s.sessionId),
+  )
   const volumeByDate = new Map<string, number>()
   for (const s of monthSets) volumeByDate.set(s.date, (volumeByDate.get(s.date) ?? 0) + setVolume(s))
   for (let w = 0; w * 7 < daysInMonth; w++) {
@@ -195,7 +200,10 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
 
   // 年初 vs 年末:各动作 1月最佳 vs 12月最佳(估算1RM)
   const topProgress: YearlyReport['topProgress'] = []
-  const allSets = await db.sets.where('date').between(start, end, true, true).toArray()
+  const completedSessionIds = new Set(sessions.map((s) => s.id))
+  const allSets = (await db.sets.where('date').between(start, end, true, true).toArray()).filter((s) =>
+    completedSessionIds.has(s.sessionId),
+  )
   const exMap = new Map((await db.exercises.toArray()).map((e) => [e.id, e]))
   const { estimate1RM } = await import('./calc')
   const bestByMonthByEx = new Map<string, Map<string, { est: number; w: number; r: number }>>()
