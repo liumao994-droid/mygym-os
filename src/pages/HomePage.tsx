@@ -110,7 +110,7 @@ export default function HomePage() {
               }}
               className="mt-1 rounded-xl px-4 py-2 text-[13px] font-medium text-ink-2 ring-1 ring-line"
             >
-              🏸 记羽毛球
+              或记录其他运动(游泳 / 网球…)
             </button>
             <button
               onClick={async () => {
