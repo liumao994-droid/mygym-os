@@ -148,44 +148,33 @@ export default function TrainPage() {
           onClick={() => setRestOpen(true)}
           delay={0.1}
         />
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          onClick={() => navigate('/badminton/new')}
-          className="col-span-2 flex items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
-        >
-          <span
-            className="flex size-10 items-center justify-center rounded-xl text-lg"
-            style={{ backgroundColor: `${SPORT_META.badminton.color}22` }}
-          >
-            {SPORT_META.badminton.emoji}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold">羽毛球</span>
-            <span className="block text-xs text-ink-3">记录时长 · 局数 · 胜负</span>
-          </span>
-          <span className="text-ink-3">›</span>
-        </motion.button>
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.18, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          onClick={() => navigate('/swimming/new')}
-          className="col-span-2 flex items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
-        >
-          <span
-            className="flex size-10 items-center justify-center rounded-xl text-lg"
-            style={{ backgroundColor: `${SPORT_META.swimming.color}22` }}
-          >
-            {SPORT_META.swimming.emoji}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold">游泳</span>
-            <span className="block text-xs text-ink-3">记录距离 · 泳姿 · 自动配速</span>
-          </span>
-          <span className="text-ink-3">›</span>
-        </motion.button>
+{(Object.keys(SPORT_META) as (keyof typeof SPORT_META)[])
+          .filter((sp) => sp !== 'strength')
+          .map((sp, i) => {
+            const meta = SPORT_META[sp]
+            return (
+              <motion.button
+                key={sp}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 + i * 0.05, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                onClick={() => navigate(`${meta.routeBase}/new`)}
+                className="col-span-2 flex items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
+              >
+                <span
+                  className="flex size-10 items-center justify-center rounded-xl text-lg"
+                  style={{ backgroundColor: `${meta.color}22` }}
+                >
+                  {meta.emoji}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold">{meta.name}</span>
+                  <span className="block text-xs text-ink-3">{meta.desc}</span>
+                </span>
+                <span className="text-ink-3">›</span>
+              </motion.button>
+            )
+          })}
       </div>
 
       {/* 模板 */}

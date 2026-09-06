@@ -207,21 +207,29 @@ export async function getActivityOverviewForMonths(keys: string[]): Promise<Map<
   return map
 }
 
-/** 某运动的记录摘要(历史页/详情展示用) */
-export function describeActivity(s: ActivitySession): string {
-  const parts: string[] = []
-  if (s.sport === 'badminton') {
+/** 各运动的摘要渲染器(新增运动在此注册一项;通用字段在外层统一拼接) */
+const ACTIVITY_PREVIEW: Partial<Record<NonStrengthSport, (s: ActivitySession) => string | undefined>> = {
+  badminton: (s) => {
+    const parts: string[] = []
     if (s.playType) parts.push(s.playType === 'singles' ? '单打' : '双打')
     const g = s.score ?? {}
     if ((g.gamesTotal ?? 0) > 0) {
       parts.push(`${g.gamesTotal}局`)
       if ((g.gamesWon ?? 0) > 0 || (g.gamesLost ?? 0) > 0) parts.push(`胜${g.gamesWon ?? 0}负${g.gamesLost ?? 0}`)
     }
-  }
-  if (s.sport === 'swimming') {
+    return parts.length ? parts.join(' · ') : undefined
+  },
+  swimming: (s) => {
     const sw = swimSummary(s)
-    if (sw) parts.push(sw)
-  }
+    return sw || undefined
+  },
+}
+
+/** 某运动的记录摘要(历史页/详情展示用) */
+export function describeActivity(s: ActivitySession): string {
+  const parts: string[] = []
+  const sportPart = ACTIVITY_PREVIEW[s.sport]?.(s)
+  if (sportPart) parts.push(sportPart)
   if (s.durationMin) parts.push(`${s.durationMin}分钟`)
   if (s.venue) parts.push(s.venue)
   return parts.join(' · ')

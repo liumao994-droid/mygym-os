@@ -48,12 +48,31 @@ export interface SportMeta {
   name: string
   emoji: string
   color: string
+  /** 入口副标题:这个运动记录什么 */
+  desc: string
+  /** 页面路由基路径(strength 为 /train) */
+  routeBase: string
+  /** 历史筛选器短标签 */
+  label: string
 }
 
+/**
+ * 运动注册表 —— 新增运动的唯一必改点(除运动自己的页面模块):
+ * 在此注册后,首页入口/训练页卡片/历史筛选/记录运动弹层自动识别。
+ */
 export const SPORT_META: Record<SportType, SportMeta> = {
-  strength: { id: 'strength', name: '力量训练', emoji: '🏋️', color: '#6F8FD8' },
-  badminton: { id: 'badminton', name: '羽毛球', emoji: '🏸', color: '#63B3A4' },
-  swimming: { id: 'swimming', name: '游泳', emoji: '🏊', color: '#5FB0CE' },
+  strength: {
+    id: 'strength', name: '力量训练', emoji: '🏋️', color: '#6F8FD8',
+    desc: '部位 · 动作 · 组数重量', routeBase: '/train', label: '🏋️ 力量',
+  },
+  badminton: {
+    id: 'badminton', name: '羽毛球', emoji: '🏸', color: '#63B3A4',
+    desc: '时长 · 单双打 · 局数胜负', routeBase: '/badminton', label: '🏸 羽毛球',
+  },
+  swimming: {
+    id: 'swimming', name: '游泳', emoji: '🏊', color: '#5FB0CE',
+    desc: '距离 · 泳姿 · 自动配速', routeBase: '/swimming', label: '🏊 游泳',
+  },
 }
 
 /** 泳姿 */

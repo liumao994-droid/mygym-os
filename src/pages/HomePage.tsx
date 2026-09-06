@@ -12,7 +12,7 @@ import { getInsights, dismissInsight, type Insight } from '@/services/insights'
 import { cn, fmtDateCN, fmtDateFullCN, fmtHoursMin, fmtVolume, fmtWeekdayCN, fmtWeight, haptic, todayStr, addDays } from '@/lib/util'
 import { toDisplayWeight } from '@/services/calc'
 import { Button, Card, EmptyState, SectionTitle, Sheet } from '@/components/ui/basic'
-import { SPORT_META } from '@/db/models'
+import { SPORT_META, SPORT_TYPES } from '@/db/models'
 import { toast, useSettings } from '@/store/settings'
 import { BrandWatermark, WM_PANEL } from '@/components/BrandWatermark'
 
@@ -227,7 +227,7 @@ export default function HomePage() {
                 <span className="flex size-11 items-center justify-center rounded-2xl bg-accent-dim text-lg">🏃</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold">记录一次运动</span>
-                  <span className="block text-xs text-ink-3">🏋️ 力量 · 🏸 羽毛球 · 🏊 游泳</span>
+                  <span className="block text-xs text-ink-3">{SPORT_TYPES.map((sp) => SPORT_META[sp].emoji + " " + SPORT_META[sp].name).join(" · ")}</span>
                 </span>
                 <span className="text-ink-3">›</span>
               </motion.button>
@@ -274,20 +274,14 @@ export default function HomePage() {
       {/* 记录运动:选择运动类型 */}
       <Sheet open={sportSheetOpen} onClose={() => setSportSheetOpen(false)} title="选择运动类型">
         <div className="space-y-2.5 pb-6">
-          {(
-            [
-              { sport: 'strength', desc: '部位 · 动作 · 组数重量' },
-              { sport: 'badminton', desc: '时长 · 单双打 · 局数胜负' },
-              { sport: 'swimming', desc: '距离 · 泳姿 · 自动配速' },
-            ] as { sport: 'strength' | 'badminton' | 'swimming'; desc: string }[]
-          ).map((o) => {
-            const meta = SPORT_META[o.sport]
+          {SPORT_TYPES.map((sp) => {
+            const meta = SPORT_META[sp]
             return (
               <button
-                key={o.sport}
+                key={sp}
                 onClick={() => {
                   setSportSheetOpen(false)
-                  navigate(o.sport === 'strength' ? '/train' : `/${o.sport}/new`)
+                  navigate(meta.routeBase === '/train' ? '/train' : `${meta.routeBase}/new`)
                 }}
                 className="flex w-full items-center gap-3 rounded-3xl bg-surface-2 p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
               >
@@ -299,7 +293,7 @@ export default function HomePage() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold">{meta.name}</span>
-                  <span className="block text-xs text-ink-3">{o.desc}</span>
+                  <span className="block text-xs text-ink-3">{meta.desc}</span>
                 </span>
                 <span className="text-ink-3">›</span>
               </button>

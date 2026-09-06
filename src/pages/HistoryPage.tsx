@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Moon, Dumbbell, ChevronLeft, ChevronRight } from 'lucide-react'
 import { db } from '@/db/db'
 import type { ActivitySession } from '@/db/models'
-import { SPORT_META } from '@/db/models'
+import { SPORT_META, SPORT_TYPES } from '@/db/models'
 import { ActivityDetailSheet } from '@/pages/BadmintonPages'
 import { describeActivity as describeSession } from '@/services/activity'
 import { BODY_PART_META, type BodyPartId, type WorkoutSession } from '@/db/models'
@@ -59,11 +59,13 @@ export default function HistoryPage() {
           <div className="flex gap-1.5">
             {(
               [
-                { v: 'all', label: '全部' },
-                { v: 'strength', label: '🏋️ 力量' },
-                { v: 'badminton', label: '🏸 羽毛球' },
-                { v: 'swimming', label: '🏊 游泳' },
-              ] as { v: HistoryFilter; label: string }[]
+                { v: 'all' as HistoryFilter, label: '全部' },
+                ...SPORT_TYPES.filter((sp) => sp !== 'strength').map((sp) => ({
+                  v: sp as HistoryFilter,
+                  label: SPORT_META[sp].label,
+                })),
+                { v: 'strength' as HistoryFilter, label: SPORT_META.strength.label },
+              ]
             ).map((o) => (
               <button
                 key={o.v}
@@ -305,20 +307,22 @@ function TimelineView({ days, filter, onMore }: { days: number; filter: HistoryF
       )}
       <div className="space-y-2">
         {rows?.map((row, i) =>
-          row.activity?.sport === 'swimming' ? (
+          row.activity ? (
             <motion.button
               key={row.activity.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.3 }}
-              onClick={() => setDetailSwim(row.activity!)}
+              onClick={() =>
+                row.activity!.sport === 'swimming' ? setDetailSwim(row.activity!) : setDetailActivity(row.activity!)
+              }
               className="flex w-full items-center gap-3.5 rounded-3xl bg-surface p-4 text-left ring-1 ring-line active:scale-[0.99]"
             >
               <span
                 className="flex size-11 shrink-0 items-center justify-center rounded-2xl text-lg"
-                style={{ backgroundColor: `${SPORT_META.swimming.color}22` }}
+                style={{ backgroundColor: `${SPORT_META[row.activity.sport].color}22` }}
               >
-                {SPORT_META.swimming.emoji}
+                {SPORT_META[row.activity.sport].emoji}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
@@ -326,35 +330,7 @@ function TimelineView({ days, filter, onMore }: { days: number; filter: HistoryF
                   <span className="text-xs text-ink-3">{fmtWeekdayCN(row.date)}</span>
                 </span>
                 <span className="num mt-0.5 block truncate text-[13px] text-ink-3">
-                  游泳 · {describeSession(row.activity)}
-                </span>
-              </span>
-              {row.activity.isDemo === 1 && (
-                <span className="shrink-0 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-ink-3">示例</span>
-              )}
-            </motion.button>
-          ) : row.activity ? (
-            <motion.button
-              key={row.activity.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.3 }}
-              onClick={() => setDetailActivity(row.activity!)}
-              className="flex w-full items-center gap-3.5 rounded-3xl bg-surface p-4 text-left ring-1 ring-line active:scale-[0.99]"
-            >
-              <span
-                className="flex size-11 shrink-0 items-center justify-center rounded-2xl text-lg"
-                style={{ backgroundColor: `${SPORT_META.badminton.color}22` }}
-              >
-                {SPORT_META.badminton.emoji}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-baseline gap-2">
-                  <span className="text-[15px] font-semibold">{fmtDateCN(row.date)}</span>
-                  <span className="text-xs text-ink-3">{fmtWeekdayCN(row.date)}</span>
-                </span>
-                <span className="num mt-0.5 block truncate text-[13px] text-ink-3">
-                  羽毛球 · {describeSession(row.activity)}
+                  {SPORT_META[row.activity.sport].name} · {describeSession(row.activity)}
                 </span>
               </span>
               {row.activity.isDemo === 1 && (
