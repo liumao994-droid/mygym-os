@@ -12,12 +12,19 @@ import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle, Sheet } from '@/components/ui/basic'
 import { toast } from '@/store/settings'
 
+/** 加载中哨兵:区分 liveQuery 未出快照与记录确实不存在 */
+const LOADING = Symbol('loading')
+
 /** 羽毛球记录:新建 / 编辑(同一表单复用) */
 export function BadmintonFormPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const editing = !!id
-  const existing = useLiveQuery(() => (id ? getActivity(id) : Promise.resolve(undefined)), [id], undefined)
+  const existing = useLiveQuery(
+    () => (id ? getActivity(id) : Promise.resolve(undefined)),
+    [id],
+    LOADING as unknown as ActivitySession | undefined,
+  ) as ActivitySession | undefined | typeof LOADING
   const [saving, setSaving] = useState(false)
 
   const [f, setF] = useState<ActivityInput>({
@@ -35,7 +42,7 @@ export function BadmintonFormPage() {
   })
 
   useEffect(() => {
-    if (editing && existing) {
+    if (editing && existing && existing !== LOADING) {
       setF({
         sport: existing.sport,
         date: existing.date,
@@ -78,8 +85,17 @@ export function BadmintonFormPage() {
     }
     setSaving(true)
     try {
+      // startTime 的日期部分跟随所选日期(避免先填时间再改日期导致时间戳错位)
+      let normalizedStart = f.startTime
+      if (normalizedStart !== undefined) {
+        const d = parseLocalDate(f.date || new Date().toISOString().slice(0, 10))
+        const t = new Date(normalizedStart)
+        d.setHours(t.getHours(), t.getMinutes(), 0, 0)
+        normalizedStart = d.getTime()
+      }
       const payload: ActivityInput = {
         ...f,
+        startTime: normalizedStart,
         venue: f.venue?.trim() || undefined,
         partners: f.partners?.trim() || undefined,
         notes: f.notes?.trim() || undefined,
@@ -105,7 +121,14 @@ export function BadmintonFormPage() {
     }
   }
 
-  if (editing && existing === undefined) {
+  useEffect(() => {
+    if (editing && id && existing !== LOADING && existing === undefined) {
+      toast('记录不存在或已被删除', 'error')
+      navigate('/badminton', { replace: true })
+    }
+  }, [editing, id, existing, navigate])
+
+  if (editing && existing === LOADING) {
     return <div className="p-6 text-ink-3">加载中…</div>
   }
 
@@ -324,7 +347,11 @@ export function BadmintonPage() {
   const meta = SPORT_META.badminton
   const [detailActivity, setDetailActivity] = useState<ActivitySession | null>(null)
 
-  const sessions = useLiveQuery(() => db.activitySessions.where('sport').equals('badminton').reverse().sortBy('date'), [], undefined)
+  const sessions = useLiveQuery(
+    () => db.activitySessions.where('sport').equals('badminton').sortBy('date').then((rows) => rows.reverse()),
+    [],
+    undefined,
+  )
   const trend = useLiveQuery(async () => {
     const { getSportMonthlyTrend } = await import('@/services/activity')
     return getSportMonthlyTrend('badminton', 6)

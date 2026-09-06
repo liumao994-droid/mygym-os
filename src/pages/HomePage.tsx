@@ -105,6 +105,14 @@ export default function HomePage() {
               }}
             />
             <button
+              onClick={() => {
+                setSportSheetOpen(true)
+              }}
+              className="mt-1 rounded-xl px-4 py-2 text-[13px] font-medium text-ink-2 ring-1 ring-line"
+            >
+              🏸 记羽毛球
+            </button>
+            <button
               onClick={async () => {
                 const { seedDemoData } = await import('@/services/seed')
                 const n = await seedDemoData()
@@ -340,6 +348,15 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
           {state.actionCount} 个动作 · {state.setCount} 组
           {state.session.notes ? ` · ${state.session.notes}` : ''}
         </div>
+        {state.activities && state.activities.length > 0 && (
+          <button
+            onClick={() => navigate(state.activities!.length === 1 ? `/badminton/${state.activities![0].id}` : '/badminton')}
+            className="mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+            style={{ backgroundColor: `${SPORT_META.badminton.color}1f`, color: SPORT_META.badminton.color }}
+          >
+            🏸 今天还打了 {state.activities.length} 场羽毛球
+          </button>
+        )}
         <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(`/workout/${state.session!.id}`)}>
           查看详情
         </Button>

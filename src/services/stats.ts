@@ -148,11 +148,12 @@ export async function getTodayState(date = todayStr()): Promise<TodayState> {
     .filter((s) => s.status === 'completed')
     .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))[0]
   if (done) {
-    const [exCount, setCount] = await Promise.all([
+    const [exCount, setCount, dayActivities] = await Promise.all([
       db.workoutExercises.where('sessionId').equals(done.id).count(),
       db.sets.where('sessionId').equals(done.id).count(),
+      db.activitySessions.where('date').equals(date).toArray(),
     ])
-    return { kind: 'trained', session: done, actionCount: exCount, setCount }
+    return { kind: 'trained', session: done, actionCount: exCount, setCount, activities: dayActivities }
   }
   const dayActivities = (await db.activitySessions.where('date').equals(date).toArray())
     .filter((a) => a.sport !== undefined)
