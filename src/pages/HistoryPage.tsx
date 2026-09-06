@@ -271,16 +271,15 @@ function TimelineView({ days, filter, onMore }: { days: number; filter: HistoryF
           sortTs: session.completedAt ?? 0,
         }
       })
-    const badmintonRows: TimelineRow[] = activities
-      .filter((a) => a.sport === 'badminton')
-      .map((a) => ({ date: a.date, activity: a, actions: 0, sets: 0, volume: 0, sortTs: a.createdAt }))
-    const swimmingRows: TimelineRow[] = activities
-      .filter((a) => a.sport === 'swimming')
-      .map((a) => ({ date: a.date, activity: a, actions: 0, sets: 0, volume: 0, sortTs: a.createdAt }))
+    const sportRows: TimelineRow[] = SPORT_TYPES.filter((sp) => sp !== 'strength').flatMap((sp) =>
+      activities
+        .filter((a) => a.sport === sp)
+        .map((a) => ({ date: a.date, activity: a, actions: 0, sets: 0, volume: 0, sortTs: a.createdAt })),
+    )
     const restRows: TimelineRow[] = rests
       .filter((r) => !trainedDates.has(r.date))
       .map((r) => ({ date: r.date, rest: true, actions: 0, sets: 0, volume: 0, sortTs: 0 }))
-    const all = [...sessionRows, ...badmintonRows, ...swimmingRows, ...restRows]
+    const all = [...sessionRows, ...sportRows, ...restRows]
     const filtered =
       filter === 'all'
         ? all

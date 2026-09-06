@@ -45,7 +45,11 @@ export default function MePage() {
   async function handleImport(file: File) {
     try {
       const r = await importJSON(file, 'merge')
-      toast(`导入完成:${r.sessions} 次训练 / ${r.sets} 组`)
+      toast(
+        r.skippedActivities > 0
+          ? `导入完成:${r.sessions} 次训练 / ${r.sets} 组(已跳过 ${r.skippedActivities} 条未知运动类型的记录)`
+          : `导入完成:${r.sessions} 次训练 / ${r.sets} 组`,
+      )
       refreshStats()
     } catch (e) {
       toast(e instanceof Error ? e.message : '导入失败', 'error')

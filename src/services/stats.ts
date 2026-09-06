@@ -1,6 +1,6 @@
 import { db } from '@/db/db'
 import type { ActivitySession, BodyPartId, DailyStatus, WorkoutSession, WorkoutSet } from '@/db/models'
-import { BODY_PARTS, BODY_PART_META } from '@/db/models'
+import { BODY_PARTS, BODY_PART_META, SPORT_TYPES, type SportType } from '@/db/models'
 import { addDays, currentMonthKey, monthKey, todayStr, toLocalDate } from '@/lib/util'
 import { estimate1RM, setVolume } from './calc'
 import { getActivityMap } from './activity'
@@ -134,6 +134,11 @@ export interface TodayState {
   activities?: ActivitySession[]
 }
 
+/** 只保留已知运动类型,未知 sportType(如旧备份里的)不在首页展示,避免崩溃 */
+function knownActivities(list: ActivitySession[]): ActivitySession[] {
+  return list.filter((a) => SPORT_TYPES.includes(a.sport as SportType))
+}
+
 export async function getTodayState(date = todayStr()): Promise<TodayState> {
   const todays = await db.sessions.where('date').equals(date).toArray()
   const active = todays.find((s) => s.status === 'active')
@@ -153,10 +158,11 @@ export async function getTodayState(date = todayStr()): Promise<TodayState> {
       db.sets.where('sessionId').equals(done.id).count(),
       db.activitySessions.where('date').equals(date).toArray(),
     ])
-    return { kind: 'trained', session: done, actionCount: exCount, setCount, activities: dayActivities }
+    return { kind: 'trained', session: done, actionCount: exCount, setCount, activities: knownActivities(dayActivities) }
   }
-  const dayActivities = (await db.activitySessions.where('date').equals(date).toArray())
-    .filter((a) => a.sport !== undefined)
+  const dayActivities = knownActivities(
+    (await db.activitySessions.where('date').equals(date).toArray()).filter((a) => a.sport !== undefined),
+  )
   if (dayActivities.length) return { kind: 'badminton', activities: dayActivities }
   const rest = await db.dailyStatuses.get(date)
   if (rest?.status === 'rest') return { kind: 'rest', rest }

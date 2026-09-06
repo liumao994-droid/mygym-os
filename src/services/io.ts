@@ -1,7 +1,7 @@
 import { db } from '@/db/db'
 import { ensureDefaultExercises } from './repo'
 import { rebuildAllPRs } from './pr'
-import { WEIGHT_TYPE_LABEL, type BackupFile } from '@/db/models'
+import { WEIGHT_TYPE_LABEL, SPORT_TYPES, type BackupFile, type SportType } from '@/db/models'
 import { setVolume } from './calc'
 
 /**
@@ -113,6 +113,8 @@ export interface ImportResult {
   sets: number
   exercises: number
   activities: number
+  /** 因 sportType 不认识而被跳过的运动记录数 */
+  skippedActivities: number
 }
 
 /** 导入 JSON 备份。mode=merge 合并(同 ID 覆盖),mode=replace 清空后导入 */
@@ -181,9 +183,12 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     )
   }
   // 运动记录 sanitize:必须含字符串 id/sport/date,数字字段容错转换;不合格条目跳过
-  const activitySessions = (d.activitySessions ?? []).filter(
+  // sportType 不在已知列表内的记录同样跳过,避免未知运动类型导致界面崩溃(导入完成时会明确提示条数,不静默丢数据)
+  const allActivitySessions = (d.activitySessions ?? []).filter(
     (a) => a && typeof a.id === 'string' && typeof a.sport === 'string' && typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date),
   )
+  const skippedActivities = allActivitySessions.filter((a) => !SPORT_TYPES.includes(a.sport as SportType)).length
+  const activitySessions = allActivitySessions.filter((a) => SPORT_TYPES.includes(a.sport as SportType))
   await db.transaction(
     'rw',
     [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.appState, db.activitySessions],
@@ -205,7 +210,8 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     sessions: d.sessions?.length ?? 0,
     sets: d.sets?.length ?? 0,
     exercises: d.exercises?.length ?? 0,
-    activities: (d.activitySessions ?? []).length,
+    activities: activitySessions.length,
+    skippedActivities,
   }
 }
 

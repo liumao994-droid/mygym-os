@@ -7,7 +7,7 @@ import { db } from '@/db/db'
 import type { ActivitySession } from '@/db/models'
 import { SPORT_META } from '@/db/models'
 import { createActivity, deleteActivity, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
-import { fmtDateCN } from '@/lib/util'
+import { fmtDateCN, todayStr } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle } from '@/components/ui/basic'
 import { toast } from '@/store/settings'
@@ -26,7 +26,7 @@ export function TennisFormPage() {
 
   const [f, setF] = useState<ActivityInput & { scoreText?: string }>({
     sport: 'tennis',
-    date: new Date().toISOString().slice(0, 10),
+    date: todayStr(),
     playType: 'singles',
   })
   const [sets, setSets] = useState<{ a: number; b: number }[]>([])
@@ -172,7 +172,7 @@ export function TennisFormPage() {
               <input
                 type="date"
                 value={f.date}
-                max={new Date().toISOString().slice(0, 10)}
+                max={todayStr()}
                 onChange={(e) => setF((c) => ({ ...c, date: e.target.value }))}
                 className="num h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
               />

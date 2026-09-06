@@ -8,7 +8,7 @@ import type { ActivitySession } from '@/db/models'
 import { SPORT_META } from '@/db/models'
 import { calcPaceSecPer100m, createActivity, deleteActivity, formatDistance, formatPace, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
 import { STROKE_LABEL, type StrokeType } from '@/db/models'
-import { fmtDateCN, fmtDateFullCN, parseLocalDate } from '@/lib/util'
+import { fmtDateCN, fmtDateFullCN, parseLocalDate, todayStr } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle, Sheet } from '@/components/ui/basic'
 import { toast } from '@/store/settings'
@@ -30,7 +30,7 @@ export function BadmintonFormPage() {
 
   const [f, setF] = useState<ActivityInput>({
     sport: 'badminton',
-    date: new Date().toISOString().slice(0, 10),
+    date: todayStr(),
     startTime: undefined,
     durationMin: undefined,
     venue: '',
@@ -89,7 +89,7 @@ export function BadmintonFormPage() {
       // startTime 的日期部分跟随所选日期(避免先填时间再改日期导致时间戳错位)
       let normalizedStart = f.startTime
       if (normalizedStart !== undefined) {
-        const d = parseLocalDate(f.date || new Date().toISOString().slice(0, 10))
+        const d = parseLocalDate(f.date || todayStr())
         const t = new Date(normalizedStart)
         d.setHours(t.getHours(), t.getMinutes(), 0, 0)
         normalizedStart = d.getTime()
@@ -173,7 +173,7 @@ export function BadmintonFormPage() {
               <input
                 type="date"
                 value={f.date}
-                max={new Date().toISOString().slice(0, 10)}
+                max={todayStr()}
                 onChange={(e) => setF((c) => ({ ...c, date: e.target.value }))}
                 className="num h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
               />
@@ -187,7 +187,7 @@ export function BadmintonFormPage() {
                   const v = e.target.value
                   if (!v) return setF((c) => ({ ...c, startTime: undefined }))
                   const [h, m] = v.split(':').map(Number)
-                  const d = parseLocalDate(f.date || new Date().toISOString().slice(0, 10))
+                  const d = parseLocalDate(f.date || todayStr())
                   d.setHours(h, m, 0, 0)
                   setF((c) => ({ ...c, startTime: d.getTime() }))
                 }}
@@ -535,7 +535,7 @@ export function ActivityDetailSheet({
   onEdit: (s: ActivitySession) => void
 }) {
   const navigate = useNavigate()
-  const meta = session ? SPORT_META[session.sport as keyof typeof SPORT_META] : SPORT_META.badminton
+  const meta = (session ? SPORT_META[session.sport as keyof typeof SPORT_META] : undefined) ?? SPORT_META.badminton
   return (
     <Sheet open={!!session} onClose={onClose} title={session ? `${meta.emoji} ${fmtDateFullCN(session.date)}` : ''}>
       {session && (

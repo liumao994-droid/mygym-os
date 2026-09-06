@@ -16,7 +16,7 @@ import {
   updateActivity,
   type ActivityInput,
 } from '@/services/activity'
-import { fmtDateCN, fmtDateFullCN } from '@/lib/util'
+import { fmtDateCN, fmtDateFullCN, todayStr } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle, Sheet } from '@/components/ui/basic'
 import { toast } from '@/store/settings'
@@ -36,7 +36,7 @@ export function SwimmingFormPage() {
 
   const [f, setF] = useState<ActivityInput & { distanceM?: number; distanceUnit: DistanceUnit; stroke?: StrokeType; poolLengthM?: number; laps?: number; calories?: number }>({
     sport: 'swimming',
-    date: new Date().toISOString().slice(0, 10),
+    date: todayStr(),
     distanceUnit: 'm',
   })
   /** 距离输入(用户所选单位下的数值);底层 distanceM 统一存米 */
@@ -160,7 +160,7 @@ export function SwimmingFormPage() {
               <input
                 type="date"
                 value={f.date}
-                max={new Date().toISOString().slice(0, 10)}
+                max={todayStr()}
                 onChange={(e) => setF((c) => ({ ...c, date: e.target.value }))}
                 className="num h-11 w-full rounded-xl bg-surface-2 px-3 text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
               />
