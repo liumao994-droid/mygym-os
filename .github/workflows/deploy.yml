@@ -1,10 +1,10 @@
-# push 到 main → 自动构建并发布到 Netlify 正式站点
+# Netlify 正式部署(手动触发)
+# 开发阶段已停用 push 自动部署;
+# 需要上线时:恢复 on.push 配置,或本地执行 npm run build && netlify deploy --prod --dir dist
 name: Deploy to Netlify
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch: # 允许在 GitHub 页面手动触发
+  workflow_dispatch: # 仅手动触发(GitHub 页面 / gh workflow run)
 
 permissions:
   contents: read
