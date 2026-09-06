@@ -17,6 +17,7 @@ import YearlyReportPage from '@/pages/YearlyReportPage'
 import MilestonesPage from '@/pages/MilestonesPage'
 import { BadmintonPage, BadmintonFormPage } from '@/pages/BadmintonPages'
 import { SwimmingPage, SwimmingFormPage } from '@/pages/SwimmingPages'
+import { TennisPage, TennisFormPage } from '@/pages/TennisPages'
 
 /** 全局错误边界:数据/渲染异常不让整个页面白屏 */
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -100,6 +101,9 @@ export default function App() {
           <Route path="/swimming" element={<SwimmingPage />} />
           <Route path="/swimming/new" element={<SwimmingFormPage />} />
           <Route path="/swimming/:id/edit" element={<SwimmingFormPage />} />
+          <Route path="/tennis" element={<TennisPage />} />
+          <Route path="/tennis/new" element={<TennisFormPage />} />
+          <Route path="/tennis/:id/edit" element={<TennisFormPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <BottomNav />

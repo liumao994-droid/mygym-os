@@ -283,8 +283,16 @@ export default function HomePage() {
                   setSportSheetOpen(false)
                   navigate(meta.routeBase === '/train' ? '/train' : `${meta.routeBase}/new`)
                 }}
-                className="flex w-full items-center gap-3 rounded-3xl bg-surface-2 p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
+                className="relative flex w-full items-center gap-3 rounded-3xl bg-surface-2 p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
               >
+                {meta.easterEgg && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute right-4 top-2 -rotate-6 select-none text-[11px] font-medium italic tracking-wide text-ink-3/50"
+                  >
+                    {meta.easterEgg}
+                  </span>
+                )}
                 <span
                   className="flex size-12 items-center justify-center rounded-2xl text-2xl"
                   style={{ backgroundColor: `${meta.color}22` }}

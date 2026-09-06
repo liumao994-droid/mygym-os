@@ -19,6 +19,8 @@ export interface ActivityInput {
   partners?: string
   isMatch?: 1
   score?: ActivityScore
+  /** 比分文本(网球等,可选) */
+  scoreText?: string
   /* ---- 游泳 ---- */
   distanceM?: number
   distanceUnit?: DistanceUnit
@@ -44,6 +46,7 @@ export async function createActivity(input: ActivityInput): Promise<ActivitySess
     partners: input.partners,
     isMatch: input.isMatch,
     score: input.score,
+    scoreText: input.scoreText,
     /* ---- 游泳 ---- */
     distanceM: input.distanceM,
     distanceUnit: input.distanceUnit,
@@ -222,6 +225,17 @@ const ACTIVITY_PREVIEW: Partial<Record<NonStrengthSport, (s: ActivitySession) =>
   swimming: (s) => {
     const sw = swimSummary(s)
     return sw || undefined
+  },
+  tennis: (s) => {
+    const parts: string[] = []
+    if (s.playType) parts.push(s.playType === 'singles' ? '单打' : '双打')
+    const g = s.score ?? {}
+    if ((g.gamesTotal ?? 0) > 0) {
+      parts.push(`${g.gamesTotal}盘`)
+      if ((g.gamesWon ?? 0) > 0 || (g.gamesLost ?? 0) > 0) parts.push(`胜${g.gamesWon ?? 0}负${g.gamesLost ?? 0}`)
+    }
+    if (s.scoreText) parts.push(s.scoreText)
+    return parts.length ? parts.join(' · ') : undefined
   },
 }
 

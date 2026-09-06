@@ -40,7 +40,7 @@ export const BODY_PART_META: Record<BodyPartId, BodyPartMeta> = {
  * 现有 strength = 力量训练(sessions/sets 体系);
  * 其它运动通过 activitySessions 通用表记录,新增运动只需在此注册并扩展对应统计。
  */
-export const SPORT_TYPES = ['strength', 'badminton', 'swimming'] as const
+export const SPORT_TYPES = ['strength', 'badminton', 'swimming', 'tennis'] as const
 export type SportType = (typeof SPORT_TYPES)[number]
 
 export interface SportMeta {
@@ -54,6 +54,8 @@ export interface SportMeta {
   routeBase: string
   /** 历史筛选器短标签 */
   label: string
+  /** 可选:仅此运动入口卡片展示的隐藏小签名(如 Evan) */
+  easterEgg?: string
 }
 
 /**
@@ -72,6 +74,12 @@ export const SPORT_META: Record<SportType, SportMeta> = {
   swimming: {
     id: 'swimming', name: '游泳', emoji: '🏊', color: '#5FB0CE',
     desc: '距离 · 泳姿 · 自动配速', routeBase: '/swimming', label: '🏊 游泳',
+  },
+  tennis: {
+    id: 'tennis', name: '网球', emoji: '🎾', color: '#A3C585',
+    desc: '时长 · 单双打 · 盘数胜负', routeBase: '/tennis', label: '🎾 网球',
+    /** 隐藏彩蛋:仅网球卡片展示的小签名(不参与布局与交互) */
+    easterEgg: 'Evan',
   },
 }
 
@@ -117,6 +125,8 @@ export interface ActivitySession {
   /** 是否为比赛 */
   isMatch?: 1
   score?: ActivityScore
+  /** 比分文本(网球等,可选,如「6-4 3-6 7-5」) */
+  scoreText?: string
   /* ---- 游泳字段(全部可选) ---- */
   /** 距离,底层统一为米 */
   distanceM?: number
