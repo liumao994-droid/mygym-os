@@ -159,8 +159,16 @@ export default function TrainPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 + i * 0.05, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                 onClick={() => navigate(`${meta.routeBase}/new`)}
-                className="col-span-2 flex items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
+                className="relative col-span-2 flex items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
               >
+                {meta.easterEgg && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute right-14 top-2.5 -rotate-6 select-none text-[12px] font-semibold italic tracking-wider text-ink-2/75"
+                  >
+                    {meta.easterEgg}
+                  </span>
+                )}
                 <span
                   className="flex size-10 items-center justify-center rounded-xl text-lg"
                   style={{ backgroundColor: `${meta.color}22` }}
