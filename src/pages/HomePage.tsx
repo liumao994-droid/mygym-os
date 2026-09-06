@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { motion } from 'framer-motion'
 import { Play, Copy, Moon, CalendarDays, Flame } from 'lucide-react'
@@ -8,15 +9,17 @@ import { copyLastSession, markRest, startSession } from '@/services/repo'
 import { getHomeStats, getPartDistribution, getTodayState } from '@/services/stats'
 import { getRecentPREvents } from '@/services/pr'
 import { getInsights, dismissInsight, type Insight } from '@/services/insights'
-import { cn, fmtDateCN, fmtDateFullCN, fmtVolume, fmtWeekdayCN, fmtWeight, haptic, todayStr, addDays } from '@/lib/util'
+import { cn, fmtDateCN, fmtDateFullCN, fmtHoursMin, fmtVolume, fmtWeekdayCN, fmtWeight, haptic, todayStr, addDays } from '@/lib/util'
 import { toDisplayWeight } from '@/services/calc'
-import { Button, Card, EmptyState, SectionTitle } from '@/components/ui/basic'
+import { Button, Card, EmptyState, SectionTitle, Sheet } from '@/components/ui/basic'
+import { SPORT_META } from '@/db/models'
 import { toast, useSettings } from '@/store/settings'
 import { BrandWatermark, WM_PANEL } from '@/components/BrandWatermark'
 
 /** 首页:今日状态 → 核心数据 → 最近进步 → 快捷入口 → 洞察 */
 export default function HomePage() {
   const navigate = useNavigate()
+  const [sportSheetOpen, setSportSheetOpen] = useState(false)
   const { unit, remindersEnabled } = useSettings()
   const today = todayStr()
 
@@ -203,9 +206,28 @@ export default function HomePage() {
             {/* 本月部位分布(小条形) */}
             <MonthPartsCard />
 
+            {/* 记录运动 */}
+            <div>
+              <SectionTitle title="记录运动" />
+              <motion.button
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                onClick={() => setSportSheetOpen(true)}
+                className="flex w-full items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
+              >
+                <span className="flex size-11 items-center justify-center rounded-2xl bg-accent-dim text-lg">🏃</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold">记录一次运动</span>
+                  <span className="block text-xs text-ink-3">🏋️ 力量训练 · 🏸 羽毛球</span>
+                </span>
+                <span className="text-ink-3">›</span>
+              </motion.button>
+            </div>
+
             {/* 快捷入口 */}
             <div>
-              <SectionTitle title="快捷入口" />
+              <SectionTitle title="力量训练快捷入口" />
               <div className="grid grid-cols-2 gap-3">
                 <QuickAction
                   icon={<Play size={17} />}
@@ -240,6 +262,42 @@ export default function HomePage() {
           </>
         )}
       </main>
+
+      {/* 记录运动:选择运动类型 */}
+      <Sheet open={sportSheetOpen} onClose={() => setSportSheetOpen(false)} title="选择运动类型">
+        <div className="space-y-2.5 pb-6">
+          {(
+            [
+              { sport: 'strength', desc: '部位 · 动作 · 组数重量' },
+              { sport: 'badminton', desc: '时长 · 单双打 · 局数胜负' },
+            ] as { sport: 'strength' | 'badminton'; desc: string }[]
+          ).map((o) => {
+            const meta = SPORT_META[o.sport]
+            return (
+              <button
+                key={o.sport}
+                onClick={() => {
+                  setSportSheetOpen(false)
+                  navigate(o.sport === 'strength' ? '/train' : '/badminton/new')
+                }}
+                className="flex w-full items-center gap-3 rounded-3xl bg-surface-2 p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
+              >
+                <span
+                  className="flex size-12 items-center justify-center rounded-2xl text-2xl"
+                  style={{ backgroundColor: `${meta.color}22` }}
+                >
+                  {meta.emoji}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold">{meta.name}</span>
+                  <span className="block text-xs text-ink-3">{o.desc}</span>
+                </span>
+                <span className="text-ink-3">›</span>
+              </button>
+            )
+          })}
+        </div>
+      </Sheet>
     </div>
   )
 }
@@ -284,6 +342,30 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
         </div>
         <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(`/workout/${state.session!.id}`)}>
           查看详情
+        </Button>
+      </Card>
+    )
+  }
+
+  if (state.kind === 'badminton' && state.activities?.length) {
+    const a = state.activities[state.activities.length - 1]
+    return (
+      <Card className="!p-5" onClick={() => navigate(`/badminton/${a.id}`)}>
+        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: SPORT_META.badminton.color }}>
+          <span className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ backgroundColor: `${SPORT_META.badminton.color}22` }}>
+            🏸
+          </span>
+          今日已运动
+        </div>
+        <div className="mt-2 text-2xl font-bold">羽毛球</div>
+        <div className="num mt-1 text-sm text-ink-3">
+          {a.playType === 'singles' ? '单打' : a.playType === 'doubles' ? '双打' : ''}
+          {a.score?.gamesTotal ? ` · ${a.score.gamesTotal} 局` : ''}
+          {a.durationMin ? ` · ${fmtHoursMin(a.durationMin)}` : ''}
+          {state.activities.length > 1 ? ` · 共 ${state.activities.length} 条记录` : ''}
+        </div>
+        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate('/badminton')}>
+          查看羽毛球统计
         </Button>
       </Card>
     )

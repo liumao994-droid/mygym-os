@@ -1,6 +1,7 @@
 import { db } from '@/db/db'
 import { addDays, fmtMonthCN, fmtNum, parseLocalDate, toLocalDate } from '@/lib/util'
 import { estimate1RM, setVolume } from './calc'
+import { getActivityOverviewForMonths } from './activity'
 import {
   countSummary,
   getMonthPRs,
@@ -46,6 +47,8 @@ export interface MonthlyReport {
   }
   performanceText: string[]
   focusText: string[]
+  /** 运动概览:本月非力量运动(羽毛球等) */
+  activity: { count: number; minutes: number }
 }
 
 export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
@@ -131,8 +134,12 @@ export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
     }
   }
 
+  // 运动概览(与力量统计完全分开计算)
+  const activityOverview = (await getActivityOverviewForMonths([key])).get(key) ?? { count: 0, minutes: 0 }
+
   return {
     month: key,
+    activity: activityOverview,
     summary: {
       trained: counts.sessions,
       rest: counts.rests,
@@ -176,6 +183,8 @@ export interface YearlyReport {
   prCount: number
   topProgress: { exerciseName: string; start: string; end: string; delta: number; pct: number }[]
   topPartDistribution: PartDistribution[]
+  /** 年度非力量运动概览 */
+  activity: { count: number; minutes: number }
   dayOfYear: number
   hasData: boolean
 }
@@ -237,8 +246,18 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
   const now = new Date()
   const dayOfYear = Math.ceil((now.getTime() - new Date(year, 0, 1).getTime()) / 86400000)
 
+  const monthKeys: string[] = []
+  for (let m = 1; m <= 12; m++) monthKeys.push(`${year}-${String(m).padStart(2, '0')}`)
+  const activityOverview = await getActivityOverviewForMonths(monthKeys)
+  const activity = { count: 0, minutes: 0 }
+  for (const v of activityOverview.values()) {
+    activity.count += v.count
+    activity.minutes += v.minutes
+  }
+
   return {
     year,
+    activity,
     totalSessions: counts.sessions,
     totalSets: counts.totalSets,
     totalVolume: counts.volume,
@@ -253,12 +272,13 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
   }
 }
 
-/** 报告月份列表(报告历史) */
+/** 报告月份列表(报告历史):力量 + 运动记录 + 休息日都纳入 */
 export async function getReportMonths(): Promise<string[]> {
   const months = new Set<string>()
   await db.sessions.each((s) => {
     if (s.status === 'completed') months.add(s.date.slice(0, 7))
   })
+  await db.activitySessions.each((a) => months.add(a.date.slice(0, 7)))
   await db.dailyStatuses.each((r) => months.add(r.date.slice(0, 7)))
   // 至少包含当前月
   months.add(toLocalDate(new Date()).slice(0, 7))

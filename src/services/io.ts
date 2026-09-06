@@ -10,7 +10,7 @@ import { setVolume } from './calc'
  */
 
 export async function exportJSON(): Promise<{ blob: Blob; filename: string }> {
-  const [exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, appState] =
+  const [exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, appState, activitySessions] =
     await Promise.all([
       db.exercises.toArray(),
       db.sessions.toArray(),
@@ -21,13 +21,25 @@ export async function exportJSON(): Promise<{ blob: Blob; filename: string }> {
       db.personalRecords.toArray(),
       db.prEvents.toArray(),
       db.appState.toArray(),
+      db.activitySessions.toArray(),
     ])
   const backup: BackupFile = {
     app: 'MyGymOS',
-    schema: 1,
+    schema: 2,
     exportedAt: new Date().toISOString(),
     unit: 'kg',
-    data: { exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, appState },
+    data: {
+      exercises,
+      sessions,
+      activitySessions,
+      workoutExercises,
+      sets,
+      dailyStatuses,
+      templates,
+      personalRecords,
+      prEvents,
+      appState,
+    },
   }
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
   const date = new Date().toISOString().slice(0, 10)
@@ -100,6 +112,7 @@ export interface ImportResult {
   sessions: number
   sets: number
   exercises: number
+  activities: number
 }
 
 /** 导入 JSON 备份。mode=merge 合并(同 ID 覆盖),mode=replace 清空后导入 */
@@ -150,7 +163,7 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
   if (mode === 'replace') {
     await db.transaction(
       'rw',
-      [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.aiAnalyses, db.appState],
+      [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.aiAnalyses, db.appState, db.activitySessions],
       async () => {
         await Promise.all([
           db.exercises.clear(),
@@ -162,16 +175,19 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
           db.personalRecords.clear(),
           db.prEvents.clear(),
           db.aiAnalyses.clear(),
+          db.activitySessions.clear(),
         ])
       },
     )
   }
   await db.transaction(
     'rw',
-    [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.appState],
+    [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.appState, db.activitySessions],
     async () => {
       if (exercises) await db.exercises.bulkPut(exercises)
       if (d.sessions) await db.sessions.bulkPut(d.sessions)
+      // schema 2:运动记录(不依赖 exercises,无需重映射)
+      if (d.activitySessions) await db.activitySessions.bulkPut(d.activitySessions)
       if (workoutExercises) await db.workoutExercises.bulkPut(workoutExercises)
       if (sets) await db.sets.bulkPut(sets)
       if (d.dailyStatuses) await db.dailyStatuses.bulkPut(d.dailyStatuses)
@@ -186,6 +202,7 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     sessions: d.sessions?.length ?? 0,
     sets: d.sets?.length ?? 0,
     exercises: d.exercises?.length ?? 0,
+    activities: d.activitySessions?.length ?? 0,
   }
 }
 

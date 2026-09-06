@@ -78,6 +78,11 @@ export function fmtTime(ts: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/** 分钟数 → 「90 分钟 / 1.5 小时」 */
+export function fmtHoursMin(min: number): string {
+  return min >= 60 ? `${(min / 60).toFixed(1).replace(/\.0$/, '')} 小时` : `${min} 分钟`
+}
+
 export function fmtDuration(sec: number): string {
   if (!sec || sec <= 0) return ''
   const m = Math.floor(sec / 60)

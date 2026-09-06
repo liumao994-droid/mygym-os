@@ -516,7 +516,7 @@ export async function clearDemoData(): Promise<void> {
 export async function clearAllData(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.aiAnalyses, db.appState],
+    [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.aiAnalyses, db.appState, db.activitySessions],
     async () => {
       await Promise.all([
         db.exercises.clear(),
@@ -528,6 +528,7 @@ export async function clearAllData(): Promise<void> {
         db.personalRecords.clear(),
         db.prEvents.clear(),
         db.aiAnalyses.clear(),
+        db.activitySessions.clear(),
       ])
       // 重置播种标记(保留用户设置:单位/主题/昵称等其它 appState)
       await db.appState.delete('defaultExercisesSeeded')

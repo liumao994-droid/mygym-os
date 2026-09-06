@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Sparkles } from 'lucide-react'
-import { fmtMonthCN, fmtVolume } from '@/lib/util'
+import { fmtHoursMin, fmtMonthCN, fmtVolume } from '@/lib/util'
 import { buildMonthlyReport, type MonthlyReport } from '@/services/reports'
 import { generateAIAnalysis, getCachedAIAnalysis } from '@/services/ai'
 import { toDisplayWeight } from '@/services/calc'
@@ -76,6 +76,30 @@ export default function MonthlyReportPage() {
             </div>
           )}
         </Card>
+
+        {/* 运动概览(羽毛球等,与力量统计分开) */}
+        {report.activity.count > 0 && (
+          <Card className="!p-5">
+            <SectionTitle title="运动概览" />
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <div className="text-xl">🏋️</div>
+                <div className="num mt-1 text-lg font-bold">{s.trained}</div>
+                <div className="text-[10px] text-ink-3">力量训练 次</div>
+              </div>
+              <div>
+                <div className="text-xl">🏸</div>
+                <div className="num mt-1 text-lg font-bold">{report.activity.count}</div>
+                <div className="text-[10px] text-ink-3">羽毛球 次</div>
+              </div>
+              <div>
+                <div className="text-xl">⏱</div>
+                <div className="num mt-1 text-lg font-bold">{fmtHoursMin(report.activity.minutes)}</div>
+                <div className="text-[10px] text-ink-3">运动时长</div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* 周分布 */}
         {s.trained > 0 && (

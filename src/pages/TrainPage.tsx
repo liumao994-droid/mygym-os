@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { motion } from 'framer-motion'
 import { Copy, Play, Moon, Bookmark, Timer, ChevronRight } from 'lucide-react'
 import { db } from '@/db/db'
-import { BODY_PARTS, BODY_PART_META, type BodyPartId } from '@/db/models'
+import { BODY_PARTS, BODY_PART_META, SPORT_META, type BodyPartId } from '@/db/models'
 import { addExerciseToSession, copyLastSession, markRest, startFromTemplate, startSession } from '@/services/repo'
 import { collapseSets, cn, fmtDateCN, fmtWeight, haptic, todayStr } from '@/lib/util'
 import { Button, Card, PageHeader, SectionTitle, Sheet } from '@/components/ui/basic'
@@ -148,6 +148,25 @@ export default function TrainPage() {
           onClick={() => setRestOpen(true)}
           delay={0.1}
         />
+        <motion.button
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          onClick={() => navigate('/badminton/new')}
+          className="col-span-2 flex items-center gap-3 rounded-3xl bg-surface p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
+        >
+          <span
+            className="flex size-10 items-center justify-center rounded-xl text-lg"
+            style={{ backgroundColor: `${SPORT_META.badminton.color}22` }}
+          >
+            {SPORT_META.badminton.emoji}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold">羽毛球</span>
+            <span className="block text-xs text-ink-3">记录时长 · 局数 · 胜负</span>
+          </span>
+          <span className="text-ink-3">›</span>
+        </motion.button>
       </div>
 
       {/* 模板 */}

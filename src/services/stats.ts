@@ -1,8 +1,9 @@
 import { db } from '@/db/db'
-import type { BodyPartId, DailyStatus, WorkoutSession, WorkoutSet } from '@/db/models'
+import type { ActivitySession, BodyPartId, DailyStatus, WorkoutSession, WorkoutSet } from '@/db/models'
 import { BODY_PARTS, BODY_PART_META } from '@/db/models'
 import { addDays, currentMonthKey, monthKey, todayStr, toLocalDate } from '@/lib/util'
 import { estimate1RM, setVolume } from './calc'
+import { getActivityMap } from './activity'
 
 /**
  * 统计服务:首页数据、月度统计、部位分布、连续性。
@@ -18,13 +19,16 @@ export interface DayState {
   kind: DayKind
   session?: WorkoutSession
   rest?: DailyStatus
+  /** 非力量运动(羽毛球等),一天可能多条;kind=trained 时与力量共存 */
+  activities?: ActivitySession[]
 }
 
 /** 查询一段日期范围内每天的状态。range 含头含尾 */
 export async function getDayStates(start: string, end: string): Promise<Map<string, DayState>> {
-  const [sessions, rests] = await Promise.all([
+  const [sessions, rests, activityMap] = await Promise.all([
     db.sessions.where('date').between(start, end, true, true).and((s) => s.status === 'completed').toArray(),
     db.dailyStatuses.where('date').between(start, end, true, true).toArray(),
+    getActivityMap(start, end),
   ])
   const map = new Map<string, DayState>()
   let d = start
@@ -37,6 +41,14 @@ export async function getDayStates(start: string, end: string): Promise<Map<stri
     if (row) {
       row.kind = 'rest'
       row.rest = r
+    }
+  }
+  // 非力量运动(羽毛球等)也算「有记录」
+  for (const [date, activities] of activityMap) {
+    const row = map.get(date)
+    if (row && activities.length) {
+      row.activities = activities
+      if (row.kind === 'unrecorded') row.kind = 'trained'
     }
   }
   // 训练覆盖休息(同一天既训练又标了休息,以训练为准)
@@ -111,7 +123,7 @@ export async function sumAllVolume(): Promise<number> {
 
 /* =============== 首页:今日状态 =============== */
 
-export type TodayKind = 'trained' | 'active' | 'rest' | 'unrecorded'
+export type TodayKind = 'trained' | 'active' | 'badminton' | 'rest' | 'unrecorded'
 
 export interface TodayState {
   kind: TodayKind
@@ -119,6 +131,7 @@ export interface TodayState {
   actionCount?: number
   setCount?: number
   rest?: DailyStatus
+  activities?: ActivitySession[]
 }
 
 export async function getTodayState(date = todayStr()): Promise<TodayState> {
@@ -141,6 +154,9 @@ export async function getTodayState(date = todayStr()): Promise<TodayState> {
     ])
     return { kind: 'trained', session: done, actionCount: exCount, setCount }
   }
+  const dayActivities = (await db.activitySessions.where('date').equals(date).toArray())
+    .filter((a) => a.sport !== undefined)
+  if (dayActivities.length) return { kind: 'badminton', activities: dayActivities }
   const rest = await db.dailyStatuses.get(date)
   if (rest?.status === 'rest') return { kind: 'rest', rest }
   return { kind: 'unrecorded' }

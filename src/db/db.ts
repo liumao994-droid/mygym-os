@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type {
+  ActivitySession,
   AIAnalysis,
   AppStateRow,
   DailyStatus,
@@ -32,6 +33,8 @@ export class MyGymDB extends Dexie {
   prEvents!: Table<PREvent, string>
   aiAnalyses!: Table<AIAnalysis, string>
   appState!: Table<AppStateRow, string>
+  /** 非力量运动(羽毛球等)通用会话表(v2) */
+  activitySessions!: Table<ActivitySession, string>
 
   constructor() {
     super('mygym-os')
@@ -47,6 +50,11 @@ export class MyGymDB extends Dexie {
       prEvents: 'id, exerciseId, sessionId, date, [exerciseId+createdAt]',
       aiAnalyses: 'id, kind, period',
       appState: 'key',
+    })
+
+    // v2:新增非力量运动表(增量迁移,力量数据结构不变)
+    this.version(2).stores({
+      activitySessions: 'id, date, sport, isDemo, [sport+date], [date+isDemo]',
     })
   }
 }

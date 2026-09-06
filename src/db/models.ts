@@ -35,6 +35,60 @@ export const BODY_PART_META: Record<BodyPartId, BodyPartMeta> = {
   legs: { id: 'legs', name: '腿', color: '#223A8C' },
 }
 
+/**
+ * 运动类型注册表(可扩展):
+ * 现有 strength = 力量训练(sessions/sets 体系);
+ * 其它运动通过 activitySessions 通用表记录,新增运动只需在此注册并扩展对应统计。
+ */
+export const SPORT_TYPES = ['strength', 'badminton'] as const
+export type SportType = (typeof SPORT_TYPES)[number]
+
+export interface SportMeta {
+  id: SportType
+  name: string
+  emoji: string
+  color: string
+}
+
+export const SPORT_META: Record<SportType, SportMeta> = {
+  strength: { id: 'strength', name: '力量训练', emoji: '🏋️', color: '#6F8FD8' },
+  badminton: { id: 'badminton', name: '羽毛球', emoji: '🏸', color: '#63B3A4' },
+}
+
+export type NonStrengthSport = Exclude<SportType, 'strength'>
+
+/** 对抗类运动的计分容器(局数/胜负/得分),字段全部可选 */
+export interface ActivityScore {
+  gamesTotal?: number
+  gamesWon?: number
+  gamesLost?: number
+  pointsTotal?: number
+}
+
+/** 通用运动记录(羽毛球等非力量运动) */
+export interface ActivitySession {
+  id: ID
+  sport: NonStrengthSport
+  /** 本地日期 YYYY-MM-DD */
+  date: string
+  /** 开始时间戳(可选) */
+  startTime?: number
+  /** 持续分钟数(可选) */
+  durationMin?: number
+  venue?: string
+  playType?: 'singles' | 'doubles'
+  /** 对手/搭档(自由文本,可选) */
+  partners?: string
+  /** 是否为比赛 */
+  isMatch?: 1
+  score?: ActivityScore
+  rpe?: number
+  notes?: string
+  isDemo?: 1
+  createdAt: number
+  updatedAt: number
+}
+
 /** 重量形式 */
 export type WeightType =
   | 'weight' // 器械 / 杠铃 / 绳索等,按总重量计
@@ -220,12 +274,14 @@ export interface AppStateRow {
 /** 导出文件结构(版本化,便于未来迁移) */
 export interface BackupFile {
   app: 'MyGymOS'
-  schema: 1
+  schema: 2
   exportedAt: string
   unit: 'kg' | 'lb'
   data: {
     exercises: Exercise[]
     sessions: WorkoutSession[]
+    /** schema 2 起新增;旧备份导入时缺失则视为空 */
+    activitySessions?: ActivitySession[]
     workoutExercises: WorkoutExercise[]
     sets: WorkoutSet[]
     dailyStatuses: DailyStatus[]
