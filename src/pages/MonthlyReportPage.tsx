@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Sparkles } from 'lucide-react'
 import { fmtHoursMin, fmtMonthCN, fmtVolume } from '@/lib/util'
+import { SPORT_META } from '@/db/models'
 import { buildMonthlyReport, type MonthlyReport } from '@/services/reports'
 import { generateAIAnalysis, getCachedAIAnalysis } from '@/services/ai'
 import { toDisplayWeight } from '@/services/calc'
@@ -87,11 +88,16 @@ export default function MonthlyReportPage() {
                 <div className="num mt-1 text-lg font-bold">{s.trained}</div>
                 <div className="text-[10px] text-ink-3">力量训练 次</div>
               </div>
-              <div>
-                <div className="text-xl">🏸</div>
-                <div className="num mt-1 text-lg font-bold">{report.activity.count}</div>
-                <div className="text-[10px] text-ink-3">羽毛球 次</div>
-              </div>
+              {Object.entries(report.activity.bySport).map(([sp, per]) => {
+                const meta = SPORT_META[sp as keyof typeof SPORT_META]
+                return (
+                  <div key={sp}>
+                    <div className="text-xl">{meta?.emoji}</div>
+                    <div className="num mt-1 text-lg font-bold">{per.count}</div>
+                    <div className="text-[10px] text-ink-3">{meta?.name} 次</div>
+                  </div>
+                )
+              })}
               <div>
                 <div className="text-xl">⏱</div>
                 <div className="num mt-1 text-lg font-bold">{fmtHoursMin(report.activity.minutes)}</div>

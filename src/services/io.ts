@@ -180,14 +180,17 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
       },
     )
   }
+  // 运动记录 sanitize:必须含字符串 id/sport/date,数字字段容错转换;不合格条目跳过
+  const activitySessions = (d.activitySessions ?? []).filter(
+    (a) => a && typeof a.id === 'string' && typeof a.sport === 'string' && typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date),
+  )
   await db.transaction(
     'rw',
     [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.appState, db.activitySessions],
     async () => {
       if (exercises) await db.exercises.bulkPut(exercises)
       if (d.sessions) await db.sessions.bulkPut(d.sessions)
-      // schema 2:运动记录(不依赖 exercises,无需重映射)
-      if (d.activitySessions) await db.activitySessions.bulkPut(d.activitySessions)
+      if (activitySessions.length) await db.activitySessions.bulkPut(activitySessions)
       if (workoutExercises) await db.workoutExercises.bulkPut(workoutExercises)
       if (sets) await db.sets.bulkPut(sets)
       if (d.dailyStatuses) await db.dailyStatuses.bulkPut(d.dailyStatuses)
@@ -202,7 +205,7 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     sessions: d.sessions?.length ?? 0,
     sets: d.sets?.length ?? 0,
     exercises: d.exercises?.length ?? 0,
-    activities: d.activitySessions?.length ?? 0,
+    activities: (d.activitySessions ?? []).length,
   }
 }
 

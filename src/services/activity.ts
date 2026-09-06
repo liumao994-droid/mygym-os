@@ -1,5 +1,6 @@
 import { db } from '@/db/db'
-import type { ActivityScore, ActivitySession, NonStrengthSport } from '@/db/models'
+import type { ActivityScore, ActivitySession, DistanceUnit, NonStrengthSport, StrokeType } from '@/db/models'
+import { STROKE_LABEL } from '@/db/models'
 import { currentMonthKey, todayStr, uid } from '@/lib/util'
 
 /**
@@ -18,6 +19,13 @@ export interface ActivityInput {
   partners?: string
   isMatch?: 1
   score?: ActivityScore
+  /* ---- 游泳 ---- */
+  distanceM?: number
+  distanceUnit?: DistanceUnit
+  stroke?: StrokeType
+  poolLengthM?: number
+  laps?: number
+  calories?: number
   rpe?: number
   notes?: string
 }
@@ -36,6 +44,13 @@ export async function createActivity(input: ActivityInput): Promise<ActivitySess
     partners: input.partners,
     isMatch: input.isMatch,
     score: input.score,
+    /* ---- 游泳 ---- */
+    distanceM: input.distanceM,
+    distanceUnit: input.distanceUnit,
+    stroke: input.stroke,
+    poolLengthM: input.poolLengthM,
+    laps: input.laps,
+    calories: input.calories,
     rpe: input.rpe,
     notes: input.notes,
     createdAt: now,
@@ -171,19 +186,23 @@ export async function getSportMonthlyTrend(
 export interface ActivityOverview {
   count: number
   minutes: number
+  bySport: Partial<Record<NonStrengthSport, { count: number; minutes: number }>>
 }
 
 export async function getActivityOverviewForMonths(keys: string[]): Promise<Map<string, ActivityOverview>> {
   const all = await db.activitySessions.toArray()
   const map = new Map<string, ActivityOverview>()
-  for (const key of keys) map.set(key, { count: 0, minutes: 0 })
+  for (const key of keys) map.set(key, { count: 0, minutes: 0, bySport: {} })
   for (const a of all) {
     const key = a.date.slice(0, 7)
     const row = map.get(key)
-    if (row) {
-      row.count++
-      row.minutes += a.durationMin ?? 0
-    }
+    if (!row) continue
+    row.count++
+    row.minutes += a.durationMin ?? 0
+    const per = row.bySport[a.sport] ?? { count: 0, minutes: 0 }
+    per.count++
+    per.minutes += a.durationMin ?? 0
+    row.bySport[a.sport] = per
   }
   return map
 }
@@ -199,7 +218,107 @@ export function describeActivity(s: ActivitySession): string {
       if ((g.gamesWon ?? 0) > 0 || (g.gamesLost ?? 0) > 0) parts.push(`胜${g.gamesWon ?? 0}负${g.gamesLost ?? 0}`)
     }
   }
+  if (s.sport === 'swimming') {
+    const sw = swimSummary(s)
+    if (sw) parts.push(sw)
+  }
   if (s.durationMin) parts.push(`${s.durationMin}分钟`)
   if (s.venue) parts.push(s.venue)
   return parts.join(' · ')
+}
+
+/* =============== 游泳 =============== */
+
+/** 由时长(分钟)与距离(米)计算平均配速(秒/100m);数据不足返回 null */
+export function calcPaceSecPer100m(durationMin?: number, distanceM?: number): number | null {
+  if (!durationMin || durationMin <= 0 || !distanceM || distanceM <= 0) return null
+  return Math.round((durationMin * 60 * 100) / distanceM)
+}
+
+/** 配速秒/100m → 「1'45"」显示;unit=mi 时换算为 秒/英里 */
+export function formatPace(secPer100m: number | null | undefined, unit: DistanceUnit = 'm'): string {
+  if (!secPer100m || secPer100m <= 0) return '—'
+  const sec = unit === 'mi' ? secPer100m * (1609.344 / 100) : secPer100m
+  const m = Math.floor(sec / 60)
+  const r = Math.round(sec % 60)
+  return `${m}'${String(r).padStart(2, '0')}"`
+}
+
+/** 距离显示:米(≥1000 显示 km)或英里 */
+export function formatDistance(distanceM: number | undefined, unit: DistanceUnit = 'm'): string {
+  if (!distanceM || distanceM <= 0) return '—'
+  if (unit === 'mi') return `${(distanceM / 1609.344).toFixed(2)} mi`
+  return distanceM >= 1000 ? `${(distanceM / 1000).toFixed(distanceM % 1000 === 0 ? 0 : 2)} km` : `${Math.round(distanceM)} m`
+}
+
+/** 单条游泳记录摘要 */
+export function swimSummary(s: ActivitySession): string {
+  const parts: string[] = []
+  if (s.stroke) parts.push(STROKE_LABEL[s.stroke as StrokeType] ?? '其他')
+  if (s.distanceM) parts.push(formatDistance(s.distanceM, s.distanceUnit ?? 'm'))
+  if (s.durationMin && s.distanceM) {
+    const pace = calcPaceSecPer100m(s.durationMin, s.distanceM)
+    if (pace) parts.push(`配速 ${formatPace(pace, s.distanceUnit ?? 'm')}/100m`)
+  }
+  return parts.join(' · ')
+}
+
+/** 各泳姿次数与距离分布 */
+export async function getSwimStrokeDistribution(
+  sport: 'swimming',
+): Promise<{ stroke: StrokeType | 'unset'; count: number; distanceM: number }[]> {
+  const all = await listActivities({ sport })
+  const map = new Map<string, { count: number; distanceM: number }>()
+  for (const a of all) {
+    const key = (a.stroke as StrokeType) ?? 'unset'
+    const row = map.get(key) ?? { count: 0, distanceM: 0 }
+    row.count++
+    row.distanceM += a.distanceM ?? 0
+    map.set(key, row)
+  }
+  return [...map.entries()].map(([stroke, v]) => ({ stroke: stroke as StrokeType | 'unset', ...v })).sort((a, b) => b.count - a.count)
+}
+
+/** 游泳扩展统计:平均/最长距离与时长、平均配速 */
+export interface SwimExtraStats {
+  avgDistanceM: number | null
+  maxDistanceM: number | null
+  avgDurationMin: number | null
+  maxDurationMin: number | null
+  avgPaceSecPer100m: number | null
+}
+
+export async function getSwimExtraStats(sessions?: ActivitySession[]): Promise<SwimExtraStats> {
+  const all = sessions ?? (await listActivities({ sport: 'swimming' }))
+  const withDist = all.filter((a) => a.distanceM && a.distanceM > 0)
+  const withDur = all.filter((a) => a.durationMin && a.durationMin > 0)
+  const totalDist = withDist.reduce((acc, a) => acc + (a.distanceM ?? 0), 0)
+  const totalDurMin = withDur.reduce((acc, a) => acc + (a.durationMin ?? 0), 0)
+  return {
+    avgDistanceM: withDist.length ? Math.round(totalDist / withDist.length) : null,
+    maxDistanceM: withDist.length ? Math.max(...withDist.map((a) => a.distanceM ?? 0)) : null,
+    avgDurationMin: withDur.length ? Math.round(totalDurMin / withDur.length) : null,
+    maxDurationMin: withDur.length ? Math.max(...withDur.map((a) => a.durationMin ?? 0)) : null,
+    avgPaceSecPer100m: totalDist > 0 && totalDurMin > 0 ? calcPaceSecPer100m(totalDurMin, totalDist) : null,
+  }
+}
+
+/** 月度游泳距离趋势 */
+export async function getSwimMonthlyDistanceTrend(
+  months = 6,
+): Promise<{ month: string; sessions: number; distanceM: number }[]> {
+  const out: { month: string; sessions: number; distanceM: number }[] = []
+  const now = new Date()
+  const all = await listActivities({ sport: 'swimming' })
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const rows = all.filter((a) => a.date.startsWith(key))
+    out.push({
+      month: key,
+      sessions: rows.length,
+      distanceM: rows.reduce((acc, r) => acc + (r.distanceM ?? 0), 0),
+    })
+  }
+  return out
 }

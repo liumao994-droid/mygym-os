@@ -40,7 +40,7 @@ export const BODY_PART_META: Record<BodyPartId, BodyPartMeta> = {
  * 现有 strength = 力量训练(sessions/sets 体系);
  * 其它运动通过 activitySessions 通用表记录,新增运动只需在此注册并扩展对应统计。
  */
-export const SPORT_TYPES = ['strength', 'badminton'] as const
+export const SPORT_TYPES = ['strength', 'badminton', 'swimming'] as const
 export type SportType = (typeof SPORT_TYPES)[number]
 
 export interface SportMeta {
@@ -53,7 +53,23 @@ export interface SportMeta {
 export const SPORT_META: Record<SportType, SportMeta> = {
   strength: { id: 'strength', name: '力量训练', emoji: '🏋️', color: '#6F8FD8' },
   badminton: { id: 'badminton', name: '羽毛球', emoji: '🏸', color: '#63B3A4' },
+  swimming: { id: 'swimming', name: '游泳', emoji: '🏊', color: '#5FB0CE' },
 }
+
+/** 泳姿 */
+export const STROKE_TYPES = ['freestyle', 'breaststroke', 'backstroke', 'butterfly', 'medley', 'other'] as const
+export type StrokeType = (typeof STROKE_TYPES)[number]
+export const STROKE_LABEL: Record<StrokeType, string> = {
+  freestyle: '自由泳',
+  breaststroke: '蛙泳',
+  backstroke: '仰泳',
+  butterfly: '蝶泳',
+  medley: '混合泳',
+  other: '其他',
+}
+
+/** 距离单位:底层统一存储米,unit 仅记录用户输入习惯 */
+export type DistanceUnit = 'm' | 'mi'
 
 export type NonStrengthSport = Exclude<SportType, 'strength'>
 
@@ -82,6 +98,18 @@ export interface ActivitySession {
   /** 是否为比赛 */
   isMatch?: 1
   score?: ActivityScore
+  /* ---- 游泳字段(全部可选) ---- */
+  /** 距离,底层统一为米 */
+  distanceM?: number
+  /** 用户输入时使用的距离单位(显示层换算用) */
+  distanceUnit?: DistanceUnit
+  stroke?: StrokeType
+  /** 泳池长度(米);非标池直接存米数 */
+  poolLengthM?: number
+  /** 趟数/圈数 */
+  laps?: number
+  /** 消耗热量(kcal,可选) */
+  calories?: number
   rpe?: number
   notes?: string
   isDemo?: 1

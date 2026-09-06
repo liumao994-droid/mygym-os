@@ -6,7 +6,8 @@ import { ChevronLeft, Plus, Trash2, Pencil } from 'lucide-react'
 import { db } from '@/db/db'
 import type { ActivitySession } from '@/db/models'
 import { SPORT_META } from '@/db/models'
-import { createActivity, deleteActivity, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
+import { calcPaceSecPer100m, createActivity, deleteActivity, formatDistance, formatPace, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
+import { STROKE_LABEL, type StrokeType } from '@/db/models'
 import { fmtDateCN, fmtDateFullCN, parseLocalDate } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle, Sheet } from '@/components/ui/basic'
@@ -496,10 +497,10 @@ export function BadmintonPage() {
           ))}
         </div>
 
-        <BadmintonDetailSheet
+        <ActivityDetailSheet
           session={detailActivity}
           onClose={() => setDetailActivity(null)}
-          onEdit={(a) => {
+          onEdit={(a: ActivitySession) => {
             setDetailActivity(null)
             navigate(`/badminton/${a.id}/edit`)
           }}
@@ -523,8 +524,8 @@ export function describeSession(s: ActivitySession): string {
   return parts.join(' · ')
 }
 
-/** 羽毛球记录详情(列表页 Sheet 内展示 + 编辑/删除) */
-export function BadmintonDetailSheet({
+/** 运动记录详情(通用:按运动类型渲染字段;列表页 Sheet 内展示 + 编辑/删除) */
+export function ActivityDetailSheet({
   session,
   onClose,
   onEdit,
@@ -534,21 +535,45 @@ export function BadmintonDetailSheet({
   onEdit: (s: ActivitySession) => void
 }) {
   const navigate = useNavigate()
+  const meta = session ? SPORT_META[session.sport as keyof typeof SPORT_META] : SPORT_META.badminton
   return (
-    <Sheet open={!!session} onClose={onClose} title={session ? `${SPORT_META.badminton.emoji} ${fmtDateFullCN(session.date)}` : ''}>
+    <Sheet open={!!session} onClose={onClose} title={session ? `${meta.emoji} ${fmtDateFullCN(session.date)}` : ''}>
       {session && (
         <div className="space-y-4 pb-6">
           <Card className="!p-4">
             <div className="grid grid-cols-2 gap-y-3 text-center">
-              {session.playType && (
+              {session.sport === 'badminton' && session.playType && (
                 <Detail label="类型" value={session.playType === 'singles' ? '单打' : '双打'} />
               )}
               {session.durationMin ? <Detail label="时长" value={`${session.durationMin} 分钟`} /> : null}
-              {(session.score?.gamesTotal ?? 0) > 0 && <Detail label="总局数" value={String(session.score?.gamesTotal)} />}
-              {(session.score?.gamesWon ?? 0) > 0 || (session.score?.gamesLost ?? 0) > 0 ? (
+              {session.sport === 'badminton' && (session.score?.gamesTotal ?? 0) > 0 && (
+                <Detail label="总局数" value={String(session.score?.gamesTotal)} />
+              )}
+              {session.sport === 'badminton' && ((session.score?.gamesWon ?? 0) > 0 || (session.score?.gamesLost ?? 0) > 0) ? (
                 <Detail label="胜负" value={`${session.score?.gamesWon ?? 0} : ${session.score?.gamesLost ?? 0}`} />
               ) : null}
-              {session.score?.pointsTotal ? <Detail label="总得分" value={String(session.score.pointsTotal)} /> : null}
+              {session.sport === 'badminton' && session.score?.pointsTotal ? (
+                <Detail label="总得分" value={String(session.score.pointsTotal)} />
+              ) : null}
+              {session.sport === 'swimming' && session.distanceM ? (
+                <Detail label="距离" value={formatDistance(session.distanceM, session.distanceUnit ?? 'm')} />
+              ) : null}
+              {session.sport === 'swimming' && session.stroke && (
+                <Detail label="泳姿" value={STROKE_LABEL[session.stroke as StrokeType] ?? '其他'} />
+              )}
+              {session.sport === 'swimming' && session.poolLengthM ? (
+                <Detail label="泳池" value={`${session.poolLengthM}m`} />
+              ) : null}
+              {session.sport === 'swimming' && session.laps ? <Detail label="趟数" value={String(session.laps)} /> : null}
+              {session.sport === 'swimming' && session.durationMin && session.distanceM ? (
+                <Detail
+                  label="平均配速"
+                  value={`${formatPace(calcPaceSecPer100m(session.durationMin, session.distanceM), session.distanceUnit ?? 'm')}/100m`}
+                />
+              ) : null}
+              {session.sport === 'swimming' && session.calories ? (
+                <Detail label="热量" value={`${session.calories} kcal`} />
+              ) : null}
               {session.rpe ? <Detail label="RPE" value={String(session.rpe)} /> : null}
               {session.isMatch === 1 && <Detail label="性质" value="比赛" />}
             </div>
@@ -590,7 +615,7 @@ export function BadmintonDetailSheet({
   )
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+export function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-[11px] text-ink-3">{label}</div>

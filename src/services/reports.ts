@@ -2,6 +2,7 @@ import { db } from '@/db/db'
 import { addDays, fmtMonthCN, fmtNum, parseLocalDate, toLocalDate } from '@/lib/util'
 import { estimate1RM, setVolume } from './calc'
 import { getActivityOverviewForMonths } from './activity'
+import type { NonStrengthSport } from '@/db/models'
 import {
   countSummary,
   getMonthPRs,
@@ -47,8 +48,8 @@ export interface MonthlyReport {
   }
   performanceText: string[]
   focusText: string[]
-  /** 运动概览:本月非力量运动(羽毛球等) */
-  activity: { count: number; minutes: number }
+  /** 运动概览:本月非力量运动(羽毛球/游泳等,按类型细分) */
+  activity: { count: number; minutes: number; bySport: Partial<Record<NonStrengthSport, { count: number; minutes: number }>> }
 }
 
 export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
@@ -135,7 +136,8 @@ export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
   }
 
   // 运动概览(与力量统计完全分开计算)
-  const activityOverview = (await getActivityOverviewForMonths([key])).get(key) ?? { count: 0, minutes: 0 }
+  const activityOverview =
+    (await getActivityOverviewForMonths([key])).get(key) ?? { count: 0, minutes: 0, bySport: {} }
 
   return {
     month: key,
@@ -183,8 +185,8 @@ export interface YearlyReport {
   prCount: number
   topProgress: { exerciseName: string; start: string; end: string; delta: number; pct: number }[]
   topPartDistribution: PartDistribution[]
-  /** 年度非力量运动概览 */
-  activity: { count: number; minutes: number }
+  /** 年度非力量运动概览(按类型细分) */
+  activity: { count: number; minutes: number; bySport: Partial<Record<NonStrengthSport, { count: number; minutes: number }>> }
   dayOfYear: number
   hasData: boolean
 }
@@ -249,11 +251,22 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
   const monthKeys: string[] = []
   for (let m = 1; m <= 12; m++) monthKeys.push(`${year}-${String(m).padStart(2, '0')}`)
   const activityOverview = await getActivityOverviewForMonths(monthKeys)
-  const activity = { count: 0, minutes: 0 }
+  const bySport: Partial<Record<NonStrengthSport, { count: number; minutes: number }>> = {}
+  let activityCount = 0
+  let activityMinutes = 0
   for (const v of activityOverview.values()) {
-    activity.count += v.count
-    activity.minutes += v.minutes
+    activityCount += v.count
+    activityMinutes += v.minutes
+    for (const sp of Object.keys(v.bySport) as NonStrengthSport[]) {
+      const per = v.bySport[sp]
+      if (!per) continue
+      const agg = bySport[sp] ?? { count: 0, minutes: 0 }
+      agg.count += per.count
+      agg.minutes += per.minutes
+      bySport[sp] = agg
+    }
   }
+  const activity = { count: activityCount, minutes: activityMinutes, bySport }
 
   return {
     year,

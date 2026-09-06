@@ -227,7 +227,7 @@ export default function HomePage() {
                 <span className="flex size-11 items-center justify-center rounded-2xl bg-accent-dim text-lg">🏃</span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold">记录一次运动</span>
-                  <span className="block text-xs text-ink-3">🏋️ 力量训练 · 🏸 羽毛球</span>
+                  <span className="block text-xs text-ink-3">🏋️ 力量 · 🏸 羽毛球 · 🏊 游泳</span>
                 </span>
                 <span className="text-ink-3">›</span>
               </motion.button>
@@ -278,7 +278,8 @@ export default function HomePage() {
             [
               { sport: 'strength', desc: '部位 · 动作 · 组数重量' },
               { sport: 'badminton', desc: '时长 · 单双打 · 局数胜负' },
-            ] as { sport: 'strength' | 'badminton'; desc: string }[]
+              { sport: 'swimming', desc: '距离 · 泳姿 · 自动配速' },
+            ] as { sport: 'strength' | 'badminton' | 'swimming'; desc: string }[]
           ).map((o) => {
             const meta = SPORT_META[o.sport]
             return (
@@ -286,7 +287,7 @@ export default function HomePage() {
                 key={o.sport}
                 onClick={() => {
                   setSportSheetOpen(false)
-                  navigate(o.sport === 'strength' ? '/train' : '/badminton/new')
+                  navigate(o.sport === 'strength' ? '/train' : `/${o.sport}/new`)
                 }}
                 className="flex w-full items-center gap-3 rounded-3xl bg-surface-2 p-4 text-left ring-1 ring-line transition-transform active:scale-[0.99]"
               >
@@ -354,7 +355,7 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
             className="mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
             style={{ backgroundColor: `${SPORT_META.badminton.color}1f`, color: SPORT_META.badminton.color }}
           >
-            🏸 今天还打了 {state.activities.length} 场羽毛球
+            {state.activities.map((x) => SPORT_META[x.sport as keyof typeof SPORT_META].emoji).join('')} 今天还做了 {state.activities.length} 次其他运动
           </button>
         )}
         <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(`/workout/${state.session!.id}`)}>
@@ -366,23 +367,25 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
 
   if (state.kind === 'badminton' && state.activities?.length) {
     const a = state.activities[state.activities.length - 1]
+    const meta = SPORT_META[a.sport as keyof typeof SPORT_META]
     return (
-      <Card className="!p-5" onClick={() => navigate(`/badminton/${a.id}`)}>
-        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: SPORT_META.badminton.color }}>
-          <span className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ backgroundColor: `${SPORT_META.badminton.color}22` }}>
-            🏸
+      <Card className="!p-5" onClick={() => navigate(a.sport === 'badminton' ? `/badminton/${a.id}` : `/swimming/${a.id}/edit`)}>
+        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: meta.color }}>
+          <span className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ backgroundColor: `${meta.color}22` }}>
+            {meta.emoji}
           </span>
           今日已运动
         </div>
-        <div className="mt-2 text-2xl font-bold">羽毛球</div>
+        <div className="mt-2 text-2xl font-bold">{meta.name}</div>
         <div className="num mt-1 text-sm text-ink-3">
-          {a.playType === 'singles' ? '单打' : a.playType === 'doubles' ? '双打' : ''}
-          {a.score?.gamesTotal ? ` · ${a.score.gamesTotal} 局` : ''}
+          {a.sport === 'badminton' && a.playType ? (a.playType === 'singles' ? '单打' : '双打') : ''}
+          {a.sport === 'badminton' && a.score?.gamesTotal ? ` · ${a.score.gamesTotal} 局` : ''}
+          {a.sport === 'swimming' && a.distanceM ? ` · ${a.distanceM >= 1000 ? (a.distanceM / 1000).toFixed(2) + ' km' : a.distanceM + ' m'}` : ''}
           {a.durationMin ? ` · ${fmtHoursMin(a.durationMin)}` : ''}
           {state.activities.length > 1 ? ` · 共 ${state.activities.length} 条记录` : ''}
         </div>
-        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate('/badminton')}>
-          查看羽毛球统计
+        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(a.sport === 'badminton' ? '/badminton' : '/swimming')}>
+          查看统计
         </Button>
       </Card>
     )

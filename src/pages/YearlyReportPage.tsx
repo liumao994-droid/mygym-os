@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft } from 'lucide-react'
 import { fmtHoursMin, fmtNum, fmtVolume } from '@/lib/util'
+import { SPORT_META } from '@/db/models'
 import { buildYearlyReport, type YearlyReport } from '@/services/reports'
 import { toDisplayWeight } from '@/services/calc'
 import { Button, Card, PageHeader, SectionTitle } from '@/components/ui/basic'
@@ -79,7 +80,10 @@ export default function YearlyReportPage() {
                 <SectionTitle title="运动概览" />
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <Stat label="力量训练" value={`${report.totalSessions}`} sub="次" />
-                  <Stat label="羽毛球" value={`${report.activity.count}`} sub="次" />
+                  {Object.entries(report.activity.bySport).map(([sp, per]) => {
+                    const meta = SPORT_META[sp as keyof typeof SPORT_META]
+                    return <Stat key={sp} label={meta?.name ?? sp} value={`${per.count}`} sub="次" />
+                  })}
                   <Stat label="运动时长" value={fmtHoursMin(report.activity.minutes)} sub="" />
                 </div>
               </Card>
