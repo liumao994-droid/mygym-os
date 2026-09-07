@@ -7,7 +7,7 @@ import { db } from '@/db/db'
 import type { ActivitySession } from '@/db/models'
 import { SPORT_META } from '@/db/models'
 import { createActivity, deleteActivity, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
-import { fmtDateCN, todayStr } from '@/lib/util'
+import { fmtDateCN, parseLocalDate, todayStr } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle } from '@/components/ui/basic'
 import { toast } from '@/store/settings'
@@ -101,8 +101,17 @@ export function TennisFormPage() {
     }
     setSaving(true)
     try {
+      // startTime 的日期部分跟随所选日期(避免先填时间再改日期导致时间戳错位)
+      let normalizedStart = f.startTime
+      if (normalizedStart !== undefined) {
+        const d = parseLocalDate(f.date || todayStr())
+        const t = new Date(normalizedStart)
+        d.setHours(t.getHours(), t.getMinutes(), 0, 0)
+        normalizedStart = d.getTime()
+      }
       const payload: ActivityInput & { scoreText?: string } = {
         ...f,
+        startTime: normalizedStart,
         venue: f.venue?.trim() || undefined,
         partners: f.partners?.trim() || undefined,
         notes: f.notes?.trim() || undefined,
@@ -302,7 +311,7 @@ export function TennisFormPage() {
                 }}
                 inputMode="numeric"
                 placeholder="6"
-                className="num h-10 flex-1 rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+                className="num h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
               />
               <span className="text-ink-3">-</span>
               <input
@@ -313,7 +322,7 @@ export function TennisFormPage() {
                 }}
                 inputMode="numeric"
                 placeholder="4"
-                className="num h-10 flex-1 rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
+                className="num h-10 min-w-0 flex-1 rounded-xl bg-surface-2 px-2 text-center text-[15px] outline-none ring-1 ring-line focus:ring-accent/50"
               />
               <button
                 onClick={() => setSets((cur) => cur.filter((_, i2) => i2 !== idx))}
