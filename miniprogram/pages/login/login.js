@@ -8,6 +8,7 @@ Page({
     apiBase: '',
     nickname: '小程序联调用户',
     canDevLogin: false,
+    devOpen: false,
     busy: false
   },
 
@@ -24,6 +25,10 @@ Page({
 
   onNicknameInput(e) {
     this.setData({ nickname: e.detail.value })
+  },
+
+  onToggleDev() {
+    this.setData({ devOpen: !this.data.devOpen })
   },
 
   onSaveBase() {

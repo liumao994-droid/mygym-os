@@ -1,13 +1,26 @@
 <view class="page">
-  <view class="active-card" wx:if="{{active}}" bindtap="onContinue">
-    <view class="active-label">⏱ 训练进行中</view>
-    <view class="active-title">{{active.title}}</view>
-    <view class="muted">点击继续编辑 · {{active.date}}</view>
+  <view class="page-head">
+    <view class="head-copy">
+      <view class="eyebrow">STRENGTH</view>
+      <view class="page-title">力量训练</view>
+      <view class="page-date">{{dateLabel}}</view>
+    </view>
+    <view class="head-mark">力</view>
   </view>
 
-  <view class="card">
-    <view class="card-title">今天练什么?</view>
-    <view class="muted">选择一个或多个部位</view>
+  <view class="active-card" wx:if="{{active}}" bindtap="onContinue">
+    <view class="active-top">
+      <view class="active-label"><text class="pulse"></text>训练进行中</view>
+      <view class="active-arrow">›</view>
+    </view>
+    <view class="active-title">{{active.title}}</view>
+    <view class="active-meta">{{active.date}} · 点击继续</view>
+  </view>
+
+  <view class="start-card">
+    <view class="card-kicker">选择部位</view>
+    <view class="card-title">今天练什么？</view>
+    <view class="card-sub">可以同时选择多个部位</view>
     <view class="part-grid">
       <view
         wx:for="{{bodyParts}}"
@@ -15,18 +28,24 @@
         class="part {{item.selected ? 'part-on' : ''}}"
         data-id="{{item.id}}"
         bindtap="onTogglePart"
-      >{{item.name}}</view>
+      ><text>{{item.name}}</text><text class="part-check" wx:if="{{item.selected}}">✓</text></view>
     </view>
-    <button class="primary-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onStart">开始训练</button>
+    <button class="primary-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onStart">开始训练 <text>→</text></button>
   </view>
 
   <view class="quick-row">
-    <button class="quick-btn" loading="{{busy}}" bindtap="onCopyLast">复制上次训练</button>
-    <button class="quick-btn" bindtap="onMarkRest">记录休息</button>
+    <button class="quick-btn" loading="{{busy}}" bindtap="onCopyLast"><text class="quick-icon copy-icon">⧉</text><view><text class="quick-title">复制上次</text><text class="quick-sub">快速开始</text></view></button>
+    <button class="quick-btn" bindtap="onMarkRest"><text class="quick-icon rest-icon">月</text><view><text class="quick-title">记录休息</text><text class="quick-sub">恢复也是训练</text></view></button>
   </view>
 
-  <view class="section-title">最近训练</view>
-  <view class="card list-card" wx:if="{{recent.length}}">
+  <view class="section-head">
+    <view>
+      <view class="section-kicker">HISTORY</view>
+      <view class="section-title">最近训练</view>
+    </view>
+    <view class="history-count num">{{recent.length}} 条</view>
+  </view>
+  <view class="list-card" wx:if="{{recent.length}}">
     <view
       class="recent-row"
       wx:for="{{recent}}"
@@ -34,12 +53,13 @@
       data-id="{{item.id}}"
       bindtap="onOpenWorkout"
     >
+      <view class="recent-date"><text class="recent-day num">{{item.date}}</text></view>
       <view class="recent-main">
         <view class="recent-title">{{item.title}}</view>
-        <view class="muted">{{item.date}} · {{item.durationLabel}}</view>
+        <view class="recent-meta">{{item.durationLabel || '已完成'}}</view>
       </view>
       <view class="arrow">›</view>
     </view>
   </view>
-  <view class="card muted empty" wx:else>还没有力量训练记录</view>
+  <view class="empty" wx:else><view class="empty-mark">＋</view><view>还没有力量训练记录</view></view>
 </view>

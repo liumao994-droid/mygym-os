@@ -1,114 +1,315 @@
 .page {
-  padding-bottom: 48rpx;
+  min-height: 100vh;
+  padding-bottom: 64rpx;
 }
 
-.user-card {
+.hero {
+  padding: 38rpx 32rpx 36rpx;
+  background: #172033;
+  color: #fff;
+}
+
+.hero-top {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  justify-content: space-between;
+}
+
+.brand {
+  color: #b8f04b;
+  font-size: 20rpx;
+  font-weight: 800;
+  letter-spacing: 4rpx;
+}
+
+.greeting {
+  margin-top: 12rpx;
+  font-size: 40rpx;
+  font-weight: 800;
+}
+
+.date {
+  margin-top: 6rpx;
+  color: #aeb6c5;
+  font-size: 23rpx;
 }
 
 .avatar {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 50%;
-  background: #2e4aae;
-  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36rpx;
+  width: 70rpx;
+  height: 70rpx;
+  border: 2rpx solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: #b8f04b;
+  color: #172033;
+  font-size: 28rpx;
+  font-weight: 800;
 }
 
-.user-info {
+.hero-status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  margin-top: 42rpx;
+  padding-top: 28rpx;
+  border-top: 1rpx solid rgba(255, 255, 255, 0.13);
+}
+
+.status-kicker {
+  color: #aeb6c5;
+  font-size: 20rpx;
+}
+
+.status-value {
+  margin-top: 3rpx;
+  font-size: 38rpx;
+  font-weight: 800;
+}
+
+.status-value text {
+  font-size: 20rpx;
+  font-weight: 500;
+}
+
+.small-value {
+  font-size: 30rpx;
+}
+
+.status-divider {
+  width: 1rpx;
+  height: 60rpx;
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.sync-state {
+  display: flex;
+  align-items: center;
+  gap: 9rpx;
+  margin-left: auto;
+  color: #aeb6c5;
+  font-size: 20rpx;
+}
+
+.sync-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #55d68b;
+}
+
+.error {
+  margin: 24rpx 24rpx 0;
+  padding: 20rpx;
+  border-radius: 12rpx;
+  background: #fff0f0;
+  color: #b44747;
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 38rpx 24rpx 18rpx;
+}
+
+.section-eyebrow {
+  color: #8b94a2;
+  font-size: 18rpx;
+  font-weight: 800;
+  letter-spacing: 3rpx;
+}
+
+.section-title {
+  margin-top: 5rpx;
+  color: #172033;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.record-count {
+  color: #77808f;
+  font-size: 22rpx;
+}
+
+.sport-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+  padding: 0 24rpx;
+}
+
+.sport-card {
+  min-height: 206rpx;
+  padding: 24rpx;
+  border: 1rpx solid #e2e6ec;
+  border-radius: 16rpx;
+  background: #fff;
+  box-shadow: 0 8rpx 20rpx rgba(23, 32, 51, 0.04);
+}
+
+.sport-card:active {
+  transform: scale(0.98);
+}
+
+.sport-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.sport-icon,
+.recent-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 14rpx;
+  font-size: 32rpx;
+}
+
+.sport-arrow,
+.recent-arrow,
+.insight-arrow {
+  color: #a0a7b2;
+  font-size: 38rpx;
+}
+
+.sport-name {
+  margin-top: 24rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.sport-meta {
+  margin-top: 5rpx;
+  color: #7e8795;
+  font-size: 21rpx;
+}
+
+.sport-lime .sport-icon,
+.recent-symbol.sport-lime {
+  background: #eafaCA;
+}
+
+.sport-coral .sport-icon,
+.recent-symbol.sport-coral {
+  background: #ffebe6;
+}
+
+.sport-cyan .sport-icon,
+.recent-symbol.sport-cyan {
+  background: #e0f5f7;
+}
+
+.sport-yellow .sport-icon,
+.recent-symbol.sport-yellow {
+  background: #fff4ce;
+}
+
+.insight-card {
+  display: flex;
+  align-items: center;
+  gap: 22rpx;
+  margin: 24rpx;
+  padding: 24rpx 26rpx;
+  border: 1rpx solid #dce3ea;
+  border-radius: 16rpx;
+  background: #e8edf3;
+}
+
+.insight-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 14rpx;
+  background: #172033;
+  color: #b8f04b;
+  font-size: 19rpx;
+  font-weight: 800;
+  letter-spacing: 1rpx;
+}
+
+.insight-main,
+.recent-main {
   flex: 1;
   min-width: 0;
 }
 
-.nickname {
-  font-size: 34rpx;
-  font-weight: 600;
+.insight-title {
+  font-weight: 800;
 }
 
-.base-line {
-  padding: 0 28rpx;
-  word-break: break-all;
+.insight-text {
+  margin-top: 3rpx;
+  color: #77808f;
+  font-size: 22rpx;
 }
 
-.error {
-  margin: 20rpx 28rpx 0;
-  color: #b91c1c;
+.recent-head {
+  padding-top: 18rpx;
 }
 
-.ai-card {
-  border-left: 8rpx solid #6f8fd8;
+.recent-panel {
+  margin: 0 24rpx;
+  padding: 0 24rpx;
+  border: 1rpx solid #e2e6ec;
+  border-radius: 16rpx;
+  background: #fff;
 }
 
-.card-title {
-  font-weight: 600;
-  margin-bottom: 10rpx;
-}
-
-.section-title {
-  margin: 28rpx 28rpx 4rpx;
-  color: #374151;
-  font-weight: 600;
-}
-
-.sport-card {
-  padding-top: 20rpx;
-  padding-bottom: 20rpx;
-}
-
-.sport-head {
+.recent-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  margin-bottom: 12rpx;
+  gap: 20rpx;
+  min-height: 112rpx;
+  border-bottom: 1rpx solid #edf0f3;
 }
 
-.sport-emoji {
-  font-size: 34rpx;
+.recent-row:last-child {
+  border-bottom: 0;
 }
 
-.sport-name {
-  font-weight: 600;
+.recent-symbol {
+  width: 56rpx;
+  height: 56rpx;
+  font-size: 28rpx;
 }
 
-.recent-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 16rpx;
-  padding: 8rpx 0;
-}
-
-.rec-summary {
+.recent-name {
   overflow: hidden;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 60%;
 }
 
-.ghost-btn {
-  background: #eef2ff;
-  color: #2e4aae;
-  border: 1rpx solid #c7d2fe;
+.recent-meta {
+  margin-top: 5rpx;
+  color: #7e8795;
+  font-size: 21rpx;
 }
 
-.small {
+.empty {
+  padding: 50rpx 20rpx;
+  color: #8b94a2;
   font-size: 24rpx;
-  padding: 0 20rpx;
-  line-height: 2.2;
+  text-align: center;
 }
 
-.primary-btn {
-  margin: 40rpx 24rpx 0;
-  background: #2e4aae;
-  color: #fff;
+.account-line {
+  display: flex;
+  justify-content: center;
+  gap: 12rpx;
+  margin-top: 40rpx;
+  color: #949ca8;
+  font-size: 21rpx;
 }
 
-.strength-btn {
-  margin: 32rpx 24rpx 0;
-  background: #63b3a4;
-  color: #fff;
+.account-dot {
+  color: #c2c7cf;
 }

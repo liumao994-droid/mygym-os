@@ -15,7 +15,14 @@ Page({
       selected: false
     })),
     loading: false,
-    busy: false
+    busy: false,
+    dateLabel: ''
+  },
+
+  onLoad() {
+    const now = new Date()
+    const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+    this.setData({ dateLabel: `${now.getMonth() + 1}月${now.getDate()}日 · ${weekdays[now.getDay()]}` })
   },
 
   onShow() {

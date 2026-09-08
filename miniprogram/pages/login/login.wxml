@@ -1,31 +1,37 @@
 <view class="page">
-  <view class="brand">
-    <view class="logo">🏋️</view>
-    <view class="title">MyGym OS</view>
-    <view class="subtitle">多用户云端训练 · Web 与小程序共用身份与数据</view>
-  </view>
-
-  <view class="card">
-    <view class="label">API 地址(不含 /api)</view>
-    <view class="row">
-      <input class="input" value="{{apiBase}}" placeholder="http://127.0.0.1:8787"
-        bindinput="onBaseInput" />
-      <button class="ghost-btn" size="mini" bindtap="onSaveBase">保存</button>
+  <view class="hero">
+    <view class="brand-row">
+      <view class="brand-mark"><view class="brand-bar"></view><view class="brand-dot"></view></view>
+      <view class="brand-name">MYGYM OS</view>
     </view>
-    <view class="hint">本地联调:请保持地址可访问,并在开发者工具关闭域名校验。</view>
+    <view class="hero-title">把每一次训练，<br />变成看得见的进步。</view>
+    <view class="hero-line"></view>
+    <view class="hero-meta">TRAIN · TRACK · PROGRESS</view>
   </view>
 
-  <button class="primary-btn" loading="{{busy}}" bindtap="onWechatLogin">微信一键登录</button>
+  <view class="login-panel">
+    <view class="panel-kicker">欢迎回来</view>
+    <view class="panel-title">登录你的训练空间</view>
+    <button class="wechat-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onWechatLogin">
+      <text class="wechat-icon">We</text>
+      <text>微信一键登录</text>
+    </button>
+    <view class="privacy">登录即代表同意使用微信身份创建或关联 MyGym OS 账号</view>
+  </view>
 
   <block wx:if="{{canDevLogin}}">
-    <view class="card dev-card">
-      <view class="label">开发联调登录(仅非正式版显示)</view>
-      <input class="input" value="{{nickname}}" bindinput="onNicknameInput" maxlength="24" />
-      <button class="ghost-btn wide" bindtap="onDevLogin">使用联调账号登录</button>
+    <button class="dev-toggle" bindtap="onToggleDev">{{devOpen ? '收起联调设置' : '开发联调'}}</button>
+    <view class="dev-panel" wx:if="{{devOpen}}">
+      <view class="dev-label">API 地址</view>
+      <view class="row">
+        <input class="input" value="{{apiBase}}" placeholder="http://127.0.0.1:8787" bindinput="onBaseInput" />
+        <button class="save-btn" bindtap="onSaveBase">保存</button>
+      </view>
+      <view class="dev-label nickname-label">联调账号名称</view>
+      <input class="input full-input" value="{{nickname}}" bindinput="onNicknameInput" maxlength="24" />
+      <button class="dev-login-btn" loading="{{busy}}" bindtap="onDevLogin">使用联调账号登录</button>
     </view>
   </block>
 
-  <view class="footer">
-    微信登录由后端通过 code2session 验证;小程序不接触 AppSecret / openid。
-  </view>
+  <view class="footer">MYGYM OS · 你的训练由你掌控</view>
 </view>

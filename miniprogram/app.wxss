@@ -1,24 +1,49 @@
 page {
   min-height: 100vh;
-  background: #f5f7fc;
-  color: #1f2937;
+  background: #f2f4f7;
+  color: #172033;
   font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+view,
+text,
+button,
+input,
+textarea {
   box-sizing: border-box;
 }
 
 button {
   border-radius: 16rpx;
+  font-weight: 600;
+}
+
+button::after {
+  border: 0;
 }
 
 .card {
   margin: 24rpx;
-  padding: 28rpx;
+  padding: 28rpx 30rpx;
   background: #fff;
-  border-radius: 20rpx;
-  box-shadow: 0 4rpx 16rpx rgba(46, 74, 174, 0.06);
+  border: 1rpx solid #e4e8ee;
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 24rpx rgba(23, 32, 51, 0.05);
 }
 
 .muted {
-  color: #6b7280;
+  color: #77808f;
   font-size: 24rpx;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  color: #77808f;
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
 }
