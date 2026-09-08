@@ -15,7 +15,7 @@ const API_BASE_STORAGE_KEY = 'mygym.apiBase'
 /** 本机联调地址(开发版/体验版默认) */
 const DEV_API_BASE = 'http://127.0.0.1:8787'
 /** 正式后端地址。部署完成后填入 https:// 域名,例如 'https://api.example.com' */
-const PROD_API_BASE = ''
+const PROD_API_BASE = 'https://api.mygymos.cn'
 
 function normalizeBase(base) {
   const trimmed = String(base || '').trim().replace(/\/+$/, '')
