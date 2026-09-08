@@ -8,6 +8,7 @@ import { authRoutes } from './routes/auth.js'
 import { dataRoutes } from './routes/data.js'
 import { syncRoutes } from './routes/sync.js'
 import { aiRoutes } from './routes/ai.js'
+import { loadEnvFile } from './envfile.js'
 
 /**
  * MyGym API 服务入口。
@@ -77,6 +78,7 @@ export function createApp(cfg: AppConfig, store: Store): Express {
 
 /** 开发/生产启动:环境变量配置;测试使用 createApp 直接构造(见 test/) */
 function main(): void {
+  loadEnvFile()
   const cfg = loadConfig()
   const store = new Store(cfg.dbFile)
   const app = createApp(cfg, store)

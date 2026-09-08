@@ -31,6 +31,7 @@ DEV_AUTH_ENABLED=true npm run dev
    拿到真实 AppID 后,不要直接改已提交的 `project.config.json`;复制
    `appid.example.json` 为 `project.private.config.json`(该文件已被 Git 忽略),
    把其中的 `appid` 换成真实值即可,后续升级项目不会覆盖你的本地配置。
+   如果你把 AppID 交给了 Codex,Codex 会直接创建这个本地私有文件。
 3. 在开发者工具「详情 → 本地设置」勾选「不校验合法域名…」,才能访问本机
    `http://127.0.0.1:8787`。
 4. 登录页可先使用「开发联调登录」验证 Web/小程序共用后端;正式微信登录需要下面的平台配置。
@@ -64,6 +65,9 @@ WECHAT_APP_SECRET=...        # 微信公众平台的 AppSecret(只保存在后�
 DEV_AUTH_ENABLED=false       # 正式环境关闭联调登录
 ALLOWED_ORIGINS=https://your-web-domain  # 浏览器来源白名单
 ```
+
+后端启动入口会自动读取 `server/.env`(该文件不入 Git)。修改后重启后端即可,不需要把
+密钥写进 shell 历史或项目源码。
 
 ## 正式上线需要人工完成的平台步骤
 
