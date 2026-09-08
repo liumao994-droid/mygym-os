@@ -13,16 +13,17 @@ import { Store } from '../src/db/sqlite.js'
 
 /* ---------------- mock AI Provider ---------------- */
 
-const mockBehavior: { mode: 'ok' | 'error' | 'timeout'; delay: number } = { mode: 'ok', delay: 0 }
+const mockBehavior: { mode: 'ok' | 'error' | 'timeout'; delay: number; calls: number } = { mode: 'ok', delay: 0, calls: 0 }
 let mockServer: Server
 let mockPort = 0
 
 async function startMockProvider(): Promise<void> {
   if (mockPort) return
   mockServer = createHttpServer((req, res) => {
-    let body = ''
-    req.on('data', (c) => (body += c))
-    req.on('end', () => {
+  let body = ''
+  req.on('data', (c) => (body += c))
+  req.on('end', () => {
+      mockBehavior.calls++
       setTimeout(() => {
         if (mockBehavior.mode === 'timeout') {
           // 保持连接，直到客户端 AbortController 超时；after hook 会主动关闭所有连接。
@@ -141,6 +142,12 @@ test('health 探测无需登录', async () => {
   assert.equal(r.status, 200)
   assert.equal(r.json.ok, true)
   assert.equal(r.json.service, 'mygym-api')
+})
+
+test('生产配置:强制关闭开发登录且拒绝通配 CORS', () => {
+  const production = loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'production-secret', ALLOWED_ORIGINS: 'https://app.example.com', DEV_AUTH_ENABLED: 'true' })
+  assert.equal(production.devAuthEnabled, false)
+  assert.throws(() => loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'production-secret', ALLOWED_ORIGINS: '*' }), /ALLOWED_ORIGINS/)
 })
 
 test('dev 登录:重复登录返回同一用户', async () => {
@@ -500,6 +507,25 @@ test('AI:月额度独立生效(独立实例:日 10 / 月 1)', async () => {
   assert.equal(exceed.json.quota.monthly.remaining, 0)
   assert.equal(exceed.json.quota.daily.used, 1) // 月预扣失败时日额度已返还
   assert.equal(exceed.json.quota.daily.remaining, 9)
+})
+
+test('AI:相同周期并发请求只调用一次 Provider 且只扣一次额度', async () => {
+  const url4 = await startApp({ AI_DAILY_LIMIT: '1', AI_MONTHLY_LIMIT: '10' })
+  const u = await login(url4, '并发用户')
+  mockBehavior.mode = 'ok'
+  mockBehavior.delay = 80
+  mockBehavior.calls = 0
+  const body = { kind: 'month', period: '2026-10', stats: { trainingDays: 1 } }
+  const [first, duplicate] = await Promise.all([
+    api(url4, '/ai/training-summary', { method: 'POST', token: u.token, body }),
+    api(url4, '/ai/training-summary', { method: 'POST', token: u.token, body }),
+  ])
+  assert.equal(first.status, 200)
+  assert.equal(duplicate.status, 200)
+  assert.equal(mockBehavior.calls, 1)
+  const q = await api(url4, '/ai/quota', { token: u.token })
+  assert.equal(q.json.daily.used, 1)
+  mockBehavior.delay = 0
 })
 
 test('AI:未配置 Provider → 503', async () => {

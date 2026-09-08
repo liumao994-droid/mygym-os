@@ -97,6 +97,9 @@ function refundQuota(store: Store, userId: string): void {
 
 export function aiRoutes(store: Store, cfg: AppConfig): Router {
   const r = Router()
+  // 同一用户、同一周期的并发首请求共用一轮 Provider 调用和一次额度预扣，
+  // 防止快速重复点击在缓存生成前重复消耗额度。
+  const inFlight = new Map<string, Promise<{ content: string; model: string }>>()
   r.use(requireAuth(store, cfg))
 
   r.get('/quota', (req, res) => {
@@ -130,51 +133,63 @@ export function aiRoutes(store: Store, cfg: AppConfig): Router {
         return
       }
 
-      if (!reserveQuota(store, userId, cfg)) {
-        res.status(429).json({
-          error: 'AI_QUOTA_EXCEEDED',
-          message: 'AI 分析次数已用完,下个周期自动恢复',
-          quota: quotaPayload(cfg, store, userId),
-        })
-        return
+      let work = inFlight.get(cacheId)
+      const deduplicated = Boolean(work)
+      if (!work) {
+        work = (async () => {
+          if (!reserveQuota(store, userId, cfg)) {
+            throw new HttpError(429, 'AI_QUOTA_EXCEEDED', 'AI 分析次数已用完,下个周期自动恢复')
+          }
+          const periodLabel = kind === 'month' ? `${period.slice(0, 4)} 年 ${period.slice(5)} 月` : `${period} 年`
+          const userPrompt = `以下是 ${periodLabel} 的${kind === 'month' ? '月度' : '年度'}训练统计 JSON:\n${statsJson}`
+          let content: string
+          try {
+            const out = await chatCompletion({
+              baseUrl: cfg.ai.baseUrl,
+              apiKey: cfg.ai.apiKey,
+              model: cfg.ai.model,
+              system: SYSTEM_PROMPT,
+              user: userPrompt,
+              timeoutMs: cfg.ai.timeoutMs,
+            })
+            content = out.content
+          } catch (e) {
+            // Provider 失败不消耗额度
+            refundQuota(store, userId)
+            if (e instanceof ProviderError) {
+              throw new HttpError(e.code === 'AI_TIMEOUT' ? 504 : 502, e.code, e.message)
+            }
+            throw new HttpError(502, 'AI_PROVIDER_ERROR', 'AI 服务暂时不可用')
+          }
+          const now = Date.now()
+          store.run(
+            `INSERT INTO ai_analyses (id, user_id, kind, period, content, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO UPDATE SET content = excluded.content, model = excluded.model, created_at = excluded.created_at`,
+            cacheId,
+            userId,
+            kind,
+            period,
+            content,
+            cfg.ai.model,
+            now,
+          )
+          return { content, model: cfg.ai.model }
+        })()
+        inFlight.set(cacheId, work)
       }
 
-      const periodLabel = kind === 'month' ? `${period.slice(0, 4)} 年 ${period.slice(5)} 月` : `${period} 年`
-      const userPrompt = `以下是 ${periodLabel} 的${kind === 'month' ? '月度' : '年度'}训练统计 JSON:\n${statsJson}`
-
-      let content: string
       try {
-        const out = await chatCompletion({
-          baseUrl: cfg.ai.baseUrl,
-          apiKey: cfg.ai.apiKey,
-          model: cfg.ai.model,
-          system: SYSTEM_PROMPT,
-          user: userPrompt,
-          timeoutMs: cfg.ai.timeoutMs,
-        })
-        content = out.content
+        const out = await work
+        res.json({ content: out.content, model: out.model, cached: deduplicated, quota: quotaPayload(cfg, store, userId) })
       } catch (e) {
-        // Provider 失败不消耗额度
-        refundQuota(store, userId)
-        if (e instanceof ProviderError) {
-          throw new HttpError(e.code === 'AI_TIMEOUT' ? 504 : 502, e.code, e.message)
+        if (e instanceof HttpError && e.code === 'AI_QUOTA_EXCEEDED') {
+          res.status(429).json({ error: e.code, message: e.message, quota: quotaPayload(cfg, store, userId) })
+          return
         }
-        throw new HttpError(502, 'AI_PROVIDER_ERROR', 'AI 服务暂时不可用')
+        throw e
+      } finally {
+        if (inFlight.get(cacheId) === work) inFlight.delete(cacheId)
       }
-
-      const now = Date.now()
-      store.run(
-        `INSERT INTO ai_analyses (id, user_id, kind, period, content, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET content = excluded.content, model = excluded.model, created_at = excluded.created_at`,
-        cacheId,
-        userId,
-        kind,
-        period,
-        content,
-        cfg.ai.model,
-        now,
-      )
-      res.json({ content, model: cfg.ai.model, cached: false, quota: quotaPayload(cfg, store, userId) })
     }),
   )
 

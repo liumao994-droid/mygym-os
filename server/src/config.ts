@@ -46,17 +46,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
   const aiKey = env.AI_API_KEY ?? ''
   const aiBase = (env.AI_API_BASE_URL ?? '').replace(/\/+$/, '')
+  const allowedOrigins = (env.ALLOWED_ORIGINS ?? '*')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (isProd && allowedOrigins.includes('*')) {
+    throw new Error('生产环境必须设置明确的 ALLOWED_ORIGINS，不能使用 *')
+  }
   return {
     port: intEnv(env, 'PORT', 8787),
     host: env.HOST ?? '127.0.0.1',
     dbFile: env.DB_FILE ?? 'server-data/mygym.db',
     jwtSecret,
     jwtExpiresDays: intEnv(env, 'JWT_EXPIRES_DAYS', 30),
-    devAuthEnabled: (env.DEV_AUTH_ENABLED ?? 'true') !== 'false',
-    allowedOrigins: (env.ALLOWED_ORIGINS ?? '*')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
+    // dev 登录只能用于非生产环境；即使生产环境误设为 true 也强制关闭。
+    devAuthEnabled: !isProd && (env.DEV_AUTH_ENABLED ?? 'true') !== 'false',
+    allowedOrigins,
     ai: {
       baseUrl: aiBase,
       apiKey: aiKey,
