@@ -74,9 +74,39 @@ async function listExercises() {
   return body.exercises
 }
 
+async function createExercise(payload) {
+  const body = await write('POST', '/exercises', payload)
+  return body.exercise
+}
+
+async function patchExercise(id, patch) {
+  const body = await write('PATCH', `/exercises/${encodeURIComponent(id)}`, patch)
+  return body.exercise
+}
+
+async function deleteExercise(id) {
+  await write('DELETE', `/exercises/${encodeURIComponent(id)}`, undefined)
+  return true
+}
+
 async function listTemplates() {
   const body = await get('/templates')
   return body.templates
+}
+
+async function createTemplate(payload) {
+  const body = await write('POST', '/templates', payload)
+  return body.template
+}
+
+async function patchTemplate(id, patch) {
+  const body = await write('PATCH', `/templates/${encodeURIComponent(id)}`, patch)
+  return body.template
+}
+
+async function deleteTemplate(id) {
+  await write('DELETE', `/templates/${encodeURIComponent(id)}`, undefined)
+  return true
 }
 
 async function listDailyStatuses(params) {
@@ -87,6 +117,11 @@ async function listDailyStatuses(params) {
 async function putDailyStatus(date, payload) {
   const body = await write('PUT', `/daily-statuses/${encodeURIComponent(date)}`, payload)
   return body.dailyStatus
+}
+
+async function deleteDailyStatus(date) {
+  await write('DELETE', `/daily-statuses/${encodeURIComponent(date)}`, undefined)
+  return true
 }
 
 /* ---------------- 羽毛球 / 游泳 / 网球 ---------------- */
@@ -145,9 +180,16 @@ module.exports = {
   patchSet,
   deleteSet,
   listExercises,
+  createExercise,
+  patchExercise,
+  deleteExercise,
   listTemplates,
+  createTemplate,
+  patchTemplate,
+  deleteTemplate,
   listDailyStatuses,
   putDailyStatus,
+  deleteDailyStatus,
   listActivities,
   getActivity,
   createActivity,

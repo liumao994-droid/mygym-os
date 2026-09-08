@@ -1,5 +1,7 @@
-<view class="page">
-  <view class="hero">
+<view class="page wm-host">
+  <brand-watermark size="page" position="br" subtle />
+  <view class="hero wm-host">
+    <brand-watermark size="hero" position="tr" tone="white" />
     <view class="brand-row">
       <view class="brand-mark"><view class="brand-bar"></view><view class="brand-dot"></view></view>
       <view class="brand-name">MYGYM OS</view>

@@ -3,10 +3,20 @@
     "pages/login/login",
     "pages/home/home",
     "pages/strength/strength",
+    "pages/history/history",
+    "pages/me/me",
+    "pages/exercises/exercises",
+    "pages/exercise-detail/exercise-detail",
+    "pages/templates/templates",
+    "pages/reports/reports",
     "pages/workout/workout",
     "pages/activity/activity",
     "pages/sandbox/sandbox"
   ],
+  "usingComponents": {
+    "brand-watermark": "/components/brand-watermark/index",
+    "bottom-nav": "/components/bottom-nav/index"
+  },
   "window": {
     "navigationBarTitleText": "MyGym OS",
     "navigationBarBackgroundColor": "#172033",

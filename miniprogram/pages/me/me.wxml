@@ -1,0 +1,47 @@
+<view class="page tab-page wm-host">
+  <brand-watermark size="page" position="tr" subtle />
+  <view class="wm-content">
+    <view class="page-head"><view><view class="eyebrow">TRAIN · TRACK · GROW</view><view class="page-title">我的</view></view><view class="avatar">{{avatarChar}}</view></view>
+
+    <view class="profile-card wm-host">
+      <brand-watermark size="card" position="br" tone="white" />
+      <view class="wm-content profile-content"><view class="profile-name">{{user.nickname || 'MyGym 用户'}}</view><view class="profile-meta">{{user.authProvider === 'wechat' ? '微信账号' : '联调账号'}} · 云端数据按账号隔离</view></view>
+    </view>
+
+    <view class="stats-card wm-host">
+      <brand-watermark size="small" position="tl" tone="ink" subtle />
+      <view class="wm-content stats-grid">
+        <view><text class="stat-value num">{{stats.sessions}}</text><text class="stat-label">力量训练</text></view>
+        <view><text class="stat-value num">{{stats.activities}}</text><text class="stat-label">其他运动</text></view>
+        <view><text class="stat-value num">{{stats.sets}}</text><text class="stat-label">总组数</text></view>
+        <view><text class="stat-value num">{{stats.volume}}</text><text class="stat-label">总量 kg</text></view>
+      </view>
+    </view>
+
+    <view class="entry-grid">
+      <view class="entry" data-target="exercises" bindtap="onOpen"><text class="entry-icon">📚</text><text>我的动作</text></view>
+      <view class="entry" data-target="templates" bindtap="onOpen"><text class="entry-icon">🔖</text><text>训练模板</text></view>
+      <view class="entry" data-target="reports" bindtap="onOpen"><text class="entry-icon">📊</text><text>报告</text></view>
+    </view>
+
+    <view class="section-title">通用</view>
+    <view class="settings-card">
+      <view class="setting-row"><text>重量单位</text><view class="segment"><text class="{{unit === 'kg' ? 'on' : ''}}" data-unit="kg" bindtap="onUnit">kg</text><text class="{{unit === 'lb' ? 'on' : ''}}" data-unit="lb" bindtap="onUnit">lb</text></view></view>
+      <view class="setting-note">底层始终以 kg 存储，切换单位只影响显示。</view>
+      <view class="setting-row"><text>智能提醒</text><view class="row-right"><text>温和 · 少量</text><switch checked="{{reminders}}" color="#172033" bindchange="onReminder" /></view></view>
+      <view class="setting-row"><text>AI 分析</text><text class="row-value" wx:if="{{quota && quota.enabled}}">今日剩余 {{quota.daily.remaining}} 次</text><text class="row-value" wx:else>暂未开启</text></view>
+    </view>
+
+    <view class="section-title">数据</view>
+    <view class="settings-card">
+      <view class="action-row" bindtap="onExport"><view><view class="action-title">导出 JSON 备份</view><view class="action-sub">生成与网页版兼容的完整备份</view></view><text>›</text></view>
+      <view class="action-row" bindtap="onExportCsv"><view><view class="action-title">导出 CSV 明细</view><view class="action-sub">导出力量训练逐组数据</view></view><text>›</text></view>
+      <view class="action-row" bindtap="onImport"><view><view class="action-title">导入 JSON 备份</view><view class="action-sub">安全合并，不删除已有云端资料</view></view><text>›</text></view>
+      <view class="action-row" data-target="sandbox" bindtap="onOpen"><view><view class="action-title">连接自检</view><view class="action-sub">登录、CRUD、AI Proxy 状态</view></view><text>›</text></view>
+    </view>
+
+    <view class="about-card wm-host"><brand-watermark size="small" position="br" tone="ink" subtle /><view class="wm-content"><view class="about-brand">MyGym<text>OS</text></view><view class="about-tag">TRAIN · TRACK · GROW</view><view class="about-copy">记录训练，沉淀数据，发现进步，长期成长。</view></view></view>
+    <button class="logout" bindtap="onLogout">退出登录</button>
+  </view>
+  <bottom-nav selected="me" />
+</view>

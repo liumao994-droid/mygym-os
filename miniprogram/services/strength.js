@@ -165,6 +165,31 @@ async function copyLastCompletedSession() {
   }
 }
 
+/** 按云端模板创建训练，逐项写入以保持服务端归属与校验。 */
+async function startFromTemplate(template) {
+  if (!template || !Array.isArray(template.items) || !template.items.length) throw new Error('模板没有动作')
+  const session = await startSession(template.bodyParts || [])
+  try {
+    for (const item of template.items) {
+      const we = await addExerciseToSession(session.id, { id: item.exerciseId })
+      for (const group of item.sets || []) {
+        await addSetGroup(session.id, we.id, {
+          weightType: group.weightType || 'weight',
+          weight: Math.abs(Number(group.weight) || 0),
+          reps: group.reps,
+          count: group.count,
+          date: session.date
+        })
+      }
+    }
+    await data.patchSession(session.id, { templateId: template.id, title: template.name, updatedAt: Date.now() })
+    return session
+  } catch (e) {
+    try { await data.deleteSession(session.id) } catch (cleanupErr) {}
+    throw e
+  }
+}
+
 module.exports = {
   bodyPartTitle,
   startSession,
@@ -179,5 +204,6 @@ module.exports = {
   removeSet,
   completeWorkout,
   discardWorkout,
-  copyLastCompletedSession
+  copyLastCompletedSession,
+  startFromTemplate
 }

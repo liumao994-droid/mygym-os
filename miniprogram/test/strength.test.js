@@ -87,3 +87,25 @@ test('addSetGroup 按 count 连续写组并保留 kg 底层语义', async () => 
   assert.equal(posts[0].data.weight, -20)
   assert.equal(posts[1].data.setNumber, 3)
 })
+
+test('startFromTemplate 创建训练、动作与预设组并绑定模板', async () => {
+  wx.enqueue({ statusCode: 201, data: { session: { id: 'session-template', date: '2026-09-08', status: 'active' } } })
+  wx.enqueue({ statusCode: 201, data: { workoutExercise: { id: 'we-template' } } })
+  wx.enqueue({ statusCode: 201, data: { set: { id: 'set-template-1' } } })
+  wx.enqueue({ statusCode: 201, data: { set: { id: 'set-template-2' } } })
+  wx.enqueue({ statusCode: 200, data: { session: { id: 'session-template', templateId: 'tpl-1' } } })
+
+  const out = await strength.startFromTemplate({
+    id: 'tpl-1',
+    name: '胸 A',
+    bodyParts: ['chest'],
+    items: [{ exerciseId: 'ex-1', sets: [{ weight: 50, reps: 8, count: 2, weightType: 'weight' }] }]
+  })
+
+  assert.equal(out.id, 'session-template')
+  assert.deepEqual(wx.requests.map((r) => r.method), ['POST', 'POST', 'POST', 'POST', 'PATCH'])
+  assert.equal(wx.requests[1].data.exerciseId, 'ex-1')
+  assert.equal(wx.requests[2].data.weight, 50)
+  assert.equal(wx.requests[3].data.setNumber, 2)
+  assert.equal(wx.requests[4].data.templateId, 'tpl-1')
+})

@@ -1,0 +1,1 @@
+<text class="watermark size-{{size}} pos-{{position}} tone-{{tone}} {{subtle ? 'subtle' : ''}}">畅</text>

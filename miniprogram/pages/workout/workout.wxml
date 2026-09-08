@@ -1,4 +1,5 @@
-<view class="page">
+<view class="page tab-page wm-host">
+  <brand-watermark size="page" position="br" subtle />
   <view class="topbar">
     <button class="back-btn" bindtap="goBack">‹</button>
     <view class="top-info" wx:if="{{session}}">
@@ -189,4 +190,5 @@
       <button class="finish-btn" loading="{{busy}}" bindtap="onConfirmFinish">完成训练</button>
     </view>
   </view>
+  <bottom-nav selected="strength" />
 </view>

@@ -1,116 +1,70 @@
-<view class="page">
-  <view class="sport-hero hero-{{meta.tone}}">
-    <view>
-      <view class="hero-kicker">{{meta.kicker}}</view>
-      <view class="hero-title">{{meta.label}}</view>
-      <view class="hero-sub">记录每一次投入和进步</view>
-    </view>
-    <view class="hero-icon">{{meta.icon}}</view>
+<view class="page tab-page wm-host">
+  <brand-watermark size="page" position="br" tone="{{meta.tone}}" subtle />
+  <view class="sport-hero hero-{{meta.tone}} wm-host">
+    <brand-watermark size="hero" position="tr" tone="ink" subtle />
+    <view class="wm-content"><view class="hero-kicker">{{meta.kicker}}</view><view class="hero-title">{{meta.label}}</view><view class="hero-sub">完整记录每一次投入和进步</view></view>
+    <view class="wm-content hero-icon">{{meta.icon}}</view>
   </view>
 
-  <view class="summary-bar">
-    <view><text class="summary-number num">{{records.length}}</text><text class="summary-unit"> 次记录</text></view>
-    <button class="create-btn" bindtap="onCreate">＋ 新建记录</button>
-  </view>
-
+  <view class="summary-bar"><view><text class="summary-number num">{{records.length}}</text><text class="summary-unit"> 次记录</text></view><button class="create-btn" bindtap="onCreate">＋ 新建记录</button></view>
   <view class="loading" wx:if="{{loading}}">正在读取云端记录…</view>
-  <view class="record-list" wx:elif="{{records.length}}">
-    <view class="record-card" wx:for="{{records}}" wx:key="id">
-      <view class="record-date num">{{item.date}}</view>
-      <view class="record-main" data-id="{{item.id}}" bindtap="onEdit">
-        <view class="record-title">{{item.summary}}</view>
-        <view class="record-meta">{{item.venue || '未填写场地'}}<text wx:if="{{item.rpe}}"> · 强度 {{item.rpe}}</text></view>
-      </view>
-      <button class="delete-btn" data-id="{{item.id}}" bindtap="onDelete">删除</button>
-    </view>
-  </view>
-  <view class="empty" wx:else>
-    <view class="empty-icon">{{meta.icon}}</view>
-    <view class="empty-title">还没有{{meta.label}}记录</view>
-    <view class="empty-sub">第一次记录会从这里开始。</view>
-    <button class="empty-btn" bindtap="onCreate">记录第一次</button>
-  </view>
+  <view class="record-list" wx:elif="{{records.length}}"><view class="record-card" wx:for="{{records}}" wx:key="id"><view class="record-date num">{{item.date}}</view><view class="record-main" data-id="{{item.id}}" bindtap="onEdit"><view class="record-title">{{item.summary}}</view><view class="record-meta">{{item.venue || '未填写场地'}}<text wx:if="{{item.rpe}}"> · 强度 {{item.rpe}}</text></view></view><button class="delete-btn" data-id="{{item.id}}" bindtap="onDelete">删除</button></view></view>
+  <view class="empty" wx:else><view class="empty-icon">{{meta.icon}}</view><view class="empty-title">还没有{{meta.label}}记录</view><view class="empty-sub">除日期外全部可选，随手记一两个数字也可以。</view><button class="empty-btn" bindtap="onCreate">记录第一次</button></view>
 
   <view class="overlay" wx:if="{{formOpen}}" catchtouchmove="noop">
     <view class="sheet">
-      <view class="sheet-head">
-        <view>
-          <view class="sheet-kicker">{{editingId ? 'EDIT RECORD' : 'NEW RECORD'}}</view>
-          <view class="sheet-title">{{editingId ? '编辑' : '记录'}}{{meta.label}}</view>
-        </view>
-        <button class="close-btn" bindtap="onCloseForm">关闭</button>
-      </view>
-
+      <view class="sheet-head"><view><view class="sheet-kicker">{{editingId ? 'EDIT RECORD' : 'NEW RECORD'}}</view><view class="sheet-title">{{editingId ? '编辑' : '记录'}}{{meta.label}}</view></view><button class="close-btn" bindtap="onCloseForm">关闭</button></view>
       <scroll-view scroll-y class="form-scroll">
         <view class="form-section">
           <view class="section-label">基本信息</view>
-          <view class="field">
-            <view class="label">日期</view>
-            <picker mode="date" value="{{form.date}}" bindchange="onDateChange">
-              <view class="picker-value num">{{form.date}} <text>›</text></view>
-            </picker>
-          </view>
-          <view class="field-grid">
-            <view class="field">
-              <view class="label">时长（分钟）</view>
-              <input class="input num" type="number" value="{{form.durationMin}}" data-field="durationMin" bindinput="onField" placeholder="如 60" />
-            </view>
-            <view class="field">
-              <view class="label">主观强度 RPE</view>
-              <input class="input num" type="number" value="{{form.rpe}}" data-field="rpe" bindinput="onField" placeholder="1 - 10" />
-            </view>
-          </view>
-          <view class="field">
-            <view class="label">场地</view>
-            <input class="input" value="{{form.venue}}" data-field="venue" bindinput="onField" placeholder="如 天河体育中心" />
-          </view>
+          <view class="field-grid"><view class="field"><view class="label">日期</view><picker mode="date" value="{{form.date}}" bindchange="onDateChange"><view class="picker-value num">{{form.date}} <text>›</text></view></picker></view><view class="field"><view class="label">开始时间（可选）</view><picker mode="time" value="{{form.startTimeText}}" bindchange="onTimeChange"><view class="picker-value num">{{form.startTimeText || '--:--'}} <text>›</text></view></picker></view></view>
+          <view class="field-grid"><view class="field"><view class="label">时长（分钟）</view><input class="input num" type="number" value="{{form.durationMin}}" data-field="durationMin" bindinput="onField" placeholder="如 60"/></view><view class="field" wx:if="{{sport === 'swimming'}}"><view class="label">热量 kcal（可选）</view><input class="input num" type="number" value="{{form.calories}}" data-field="calories" bindinput="onField" placeholder="0"/></view></view>
         </view>
 
-        <view class="form-section" wx:if="{{sport !== 'swimming'}}">
+        <view class="form-section" wx:if="{{sport === 'badminton'}}">
           <view class="section-label">对局</view>
-          <view class="segment">
-            <view class="segment-item {{form.playType === 'singles' ? 'on' : ''}}" data-field="playType" data-value="singles" bindtap="onSelect">单打</view>
-            <view class="segment-item {{form.playType === 'doubles' ? 'on' : ''}}" data-field="playType" data-value="doubles" bindtap="onSelect">双打</view>
-          </view>
-          <view class="field-grid score-grid">
-            <view class="field"><view class="label">胜{{sport === 'tennis' ? '盘' : '局'}}</view><input class="input num center" type="number" value="{{form.gamesWon}}" data-field="gamesWon" bindinput="onField" placeholder="0" /></view>
-            <view class="field"><view class="label">负{{sport === 'tennis' ? '盘' : '局'}}</view><input class="input num center" type="number" value="{{form.gamesLost}}" data-field="gamesLost" bindinput="onField" placeholder="0" /></view>
-          </view>
-          <view class="field"><view class="label">对手 / 搭档</view><input class="input" value="{{form.partners}}" data-field="partners" bindinput="onField" placeholder="可选" /></view>
-          <view class="switch-line"><text>正式比赛</text><switch checked="{{form.isMatch}}" color="#172033" bindchange="onMatchChange" /></view>
+          <view class="label">单打 / 双打</view><view class="segment"><view class="segment-item {{form.playType === 'doubles' ? 'on' : ''}}" data-field="playType" data-value="doubles" bindtap="onSelect">双打</view><view class="segment-item {{form.playType === 'singles' ? 'on' : ''}}" data-field="playType" data-value="singles" bindtap="onSelect">单打</view></view>
+          <view class="field-grid score-three"><view class="field"><view class="label">总局数</view><input class="input num center" type="number" value="{{form.gamesTotal}}" data-field="gamesTotal" bindinput="onField" placeholder="0"/></view><view class="field"><view class="label">胜局</view><input class="input num center" type="number" value="{{form.gamesWon}}" data-field="gamesWon" bindinput="onField" placeholder="0"/></view><view class="field"><view class="label">负局</view><input class="input num center" type="number" value="{{form.gamesLost}}" data-field="gamesLost" bindinput="onField" placeholder="0"/></view></view>
+          <view class="field"><view class="label">总得分（可选）</view><input class="input num" type="number" value="{{form.pointsTotal}}" data-field="pointsTotal" bindinput="onField" placeholder="0"/></view>
+          <view class="label">是否比赛</view><view class="segment"><view class="segment-item {{!form.isMatch ? 'on' : ''}}" data-field="isMatch" data-value="" bindtap="onSelect">日常练习</view><view class="segment-item {{form.isMatch ? 'on' : ''}}" data-field="isMatch" data-value="1" bindtap="onSelect">正式比赛</view></view>
         </view>
 
         <view class="form-section" wx:if="{{sport === 'swimming'}}">
-          <view class="section-label">游泳数据</view>
-          <view class="field-grid">
-            <view class="field"><view class="label">距离（米）</view><input class="input num" type="digit" value="{{form.distanceM}}" data-field="distanceM" bindinput="onField" placeholder="如 1000" /></view>
-            <view class="field"><view class="label">趟数 / 圈数</view><input class="input num" type="number" value="{{form.laps}}" data-field="laps" bindinput="onField" placeholder="可选" /></view>
-          </view>
-          <view class="field-grid">
-            <view class="field"><view class="label">泳池长度（米）</view><input class="input num" type="digit" value="{{form.poolLengthM}}" data-field="poolLengthM" bindinput="onField" placeholder="25 / 50" /></view>
-            <view class="field"><view class="label">热量（kcal）</view><input class="input num" type="number" value="{{form.calories}}" data-field="calories" bindinput="onField" placeholder="可选" /></view>
-          </view>
-          <view class="field"><view class="label">泳姿</view><picker range="{{strokes}}" range-key="label" value="{{strokeIndex}}" bindchange="onStrokeChange"><view class="picker-value">{{form.stroke ? strokes[strokeIndex].label : '请选择'}} <text>›</text></view></picker></view>
+          <view class="section-label">距离</view>
+          <view class="field"><view class="label">游泳距离</view><view class="input-with-segment"><input class="input num" type="digit" value="{{form.distanceM}}" data-field="distanceM" bindinput="onField" placeholder="如 1000"/><view class="mini-segment"><text class="{{form.distanceUnit !== 'mi' ? 'on' : ''}}" data-value="m" bindtap="onDistanceUnit">米</text><text class="{{form.distanceUnit === 'mi' ? 'on' : ''}}" data-value="mi" bindtap="onDistanceUnit">英里</text></view></view></view>
+          <view class="field-grid"><view class="field"><view class="label">泳池长度（米）</view><input class="input num" type="digit" value="{{form.poolLengthM}}" data-field="poolLengthM" bindinput="onField" placeholder="不限 / 25 / 50"/></view><view class="field"><view class="label">趟数 / 圈数</view><input class="input num" type="number" value="{{form.laps}}" data-field="laps" bindinput="onField" placeholder="0"/></view></view>
+          <view class="field"><view class="label">泳姿</view><picker range="{{strokes}}" range-key="label" value="{{strokeIndex}}" bindchange="onStrokeChange"><view class="picker-value">{{form.stroke ? strokes[strokeIndex].label : '不限'}} <text>›</text></view></picker></view>
+          <view class="pace"><text>平均配速（自动计算）</text><text class="num">{{paceLabel}}</text></view>
         </view>
 
         <view class="form-section" wx:if="{{sport === 'tennis'}}">
-          <view class="section-label">网球详情</view>
-          <view class="field"><view class="label">详细比分</view><input class="input num" value="{{form.scoreText}}" data-field="scoreText" bindinput="onField" placeholder="如 6-4 3-6 7-5" /></view>
-          <view class="segment">
-            <view class="segment-item {{form.indoor === 'outdoor' ? 'on' : ''}}" data-field="indoor" data-value="outdoor" bindtap="onSelect">室外</view>
-            <view class="segment-item {{form.indoor === 'indoor' ? 'on' : ''}}" data-field="indoor" data-value="indoor" bindtap="onSelect">室内</view>
-          </view>
-          <view class="field"><view class="label">场地类型</view><picker range="{{surfaces}}" range-key="label" value="{{surfaceIndex}}" bindchange="onSurfaceChange"><view class="picker-value">{{form.surface ? surfaces[surfaceIndex].label : '请选择'}} <text>›</text></view></picker></view>
+          <view class="section-label">对局</view>
+          <view class="label">单打 / 双打</view><view class="segment"><view class="segment-item {{form.playType === 'singles' ? 'on' : ''}}" data-field="playType" data-value="singles" bindtap="onSelect">单打</view><view class="segment-item {{form.playType === 'doubles' ? 'on' : ''}}" data-field="playType" data-value="doubles" bindtap="onSelect">双打</view></view>
+          <view class="field-grid score-three"><view class="field"><view class="label">总盘数</view><input class="input num center" type="number" value="{{form.gamesTotal}}" data-field="gamesTotal" bindinput="onField" placeholder="0"/></view><view class="field"><view class="label">胜盘</view><input class="input num center" type="number" value="{{form.gamesWon}}" data-field="gamesWon" bindinput="onField" placeholder="0"/></view><view class="field"><view class="label">负盘</view><input class="input num center" type="number" value="{{form.gamesLost}}" data-field="gamesLost" bindinput="onField" placeholder="0"/></view></view>
+          <view class="field"><view class="label">性质（可选）</view><picker range="{{natures}}" range-key="label" value="{{natureIndex}}" bindchange="onNatureChange"><view class="picker-value">{{natures[natureIndex].label}} <text>›</text></view></picker></view>
+          <view class="field"><view class="label">对手（可选）</view><input class="input" value="{{form.partners}}" data-field="partners" bindinput="onField" placeholder="对手 / 搭档"/></view>
+          <view class="field"><view class="label">比分文本（可选）</view><input class="input num" value="{{form.scoreText}}" data-field="scoreText" bindinput="onField" placeholder="如 6-4 3-6 7-5"/></view>
+          <view class="set-head"><view><view class="label">每一盘比分</view><view class="helper">逐盘记录会保存在云端</view></view><button bindtap="onAddTennisSet">＋ 添加一盘</button></view>
+          <view class="tennis-set" wx:for="{{form.sets}}" wx:key="index"><text class="set-label">第 {{index + 1}} 盘</text><input type="number" value="{{item.a}}" data-index="{{index}}" data-side="a" bindinput="onTennisSetField" placeholder="我方"/><text>:</text><input type="number" value="{{item.b}}" data-index="{{index}}" data-side="b" bindinput="onTennisSetField" placeholder="对方"/><text class="remove" data-index="{{index}}" bindtap="onRemoveTennisSet">×</text></view>
         </view>
 
-        <view class="form-section">
-          <view class="section-label">训练备注</view>
-          <textarea class="textarea" value="{{form.notes}}" data-field="notes" bindinput="onField" placeholder="今天感觉如何？记录值得记住的细节。"></textarea>
+        <view class="form-section" wx:if="{{sport === 'tennis'}}"><view class="section-label">场地</view><view class="label">室内 / 室外（可选）</view><view class="segment"><view class="segment-item {{form.indoor === 'outdoor' ? 'on' : ''}}" data-field="indoor" data-value="outdoor" bindtap="onSelect">室外</view><view class="segment-item {{form.indoor === 'indoor' ? 'on' : ''}}" data-field="indoor" data-value="indoor" bindtap="onSelect">室内</view></view><view class="field"><view class="label">场地类型（可选）</view><picker range="{{surfaces}}" range-key="label" value="{{surfaceIndex}}" bindchange="onSurfaceChange"><view class="picker-value">{{form.surface ? surfaces[surfaceIndex].label : '不限'}} <text>›</text></view></picker></view></view>
+
+        <view class="form-section" wx:if="{{sport === 'tennis'}}">
+          <view class="section-label">技术统计</view><view class="helper block-helper">全部可选，手动填写；留空即不计入统计。</view>
+          <view class="stat-group-title">发球</view><view class="tech-grid"><view class="field"><view class="label">一发成功</view><input class="input" type="number" value="{{form.technique.firstServeIn}}" data-group="technique" data-field="firstServeIn" bindinput="onNestedField"/></view><view class="field"><view class="label">一发得分</view><input class="input" type="number" value="{{form.technique.firstServePoints}}" data-group="technique" data-field="firstServePoints" bindinput="onNestedField"/></view><view class="field"><view class="label">双误</view><input class="input" type="number" value="{{form.technique.doubleFaults}}" data-group="technique" data-field="doubleFaults" bindinput="onNestedField"/></view><view class="field"><view class="label">Ace</view><input class="input" type="number" value="{{form.technique.aces}}" data-group="technique" data-field="aces" bindinput="onNestedField"/></view><view class="field"><view class="label">发球局</view><input class="input" type="number" value="{{form.technique.serveGames}}" data-group="technique" data-field="serveGames" bindinput="onNestedField"/></view><view class="field"><view class="label">发球得分</view><input class="input" type="number" value="{{form.technique.servePointsWon}}" data-group="technique" data-field="servePointsWon" bindinput="onNestedField"/></view></view>
+          <view class="stat-group-title">接发 / 网前</view><view class="tech-grid"><view class="field"><view class="label">接发得分</view><input class="input" type="number" value="{{form.technique.returnPointsWon}}" data-group="technique" data-field="returnPointsWon" bindinput="onNestedField"/></view><view class="field"><view class="label">破发点</view><input class="input" type="number" value="{{form.technique.breakPoints}}" data-group="technique" data-field="breakPoints" bindinput="onNestedField"/></view><view class="field"><view class="label">破发成功</view><input class="input" type="number" value="{{form.technique.breakConverted}}" data-group="technique" data-field="breakConverted" bindinput="onNestedField"/></view><view class="field"><view class="label">网前得分</view><input class="input" type="number" value="{{form.technique.netPointsWon}}" data-group="technique" data-field="netPointsWon" bindinput="onNestedField"/></view></view>
+          <view class="stat-group-title">击球</view><view class="tech-grid"><view class="field"><view class="label">Winners 制胜分</view><input class="input" type="number" value="{{form.technique.winners}}" data-group="technique" data-field="winners" bindinput="onNestedField"/></view><view class="field"><view class="label">非受迫性失误</view><input class="input" type="number" value="{{form.technique.unforcedErrors}}" data-group="technique" data-field="unforcedErrors" bindinput="onNestedField"/></view></view>
         </view>
 
-        <button class="save-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onSave">{{editingId ? '保存修改' : '完成记录'}}</button>
-        <view class="form-bottom"></view>
+        <view class="form-section" wx:if="{{sport === 'tennis'}}"><view class="section-label">体能数据</view><view class="helper block-helper">可选；没有设备数据就留空。</view><view class="tech-grid"><view class="field"><view class="label">跑动时间（分钟）</view><input class="input" type="number" value="{{form.fitness.runMinutes}}" data-group="fitness" data-field="runMinutes" bindinput="onNestedField"/></view><view class="field"><view class="label">跑动距离（米）</view><input class="input" type="number" value="{{form.fitness.runDistanceM}}" data-group="fitness" data-field="runDistanceM" bindinput="onNestedField"/></view><view class="field"><view class="label">平均心率</view><input class="input" type="number" value="{{form.fitness.avgHr}}" data-group="fitness" data-field="avgHr" bindinput="onNestedField"/></view><view class="field"><view class="label">最大心率</view><input class="input" type="number" value="{{form.fitness.maxHr}}" data-group="fitness" data-field="maxHr" bindinput="onNestedField"/></view></view></view>
+
+        <view class="form-section" wx:if="{{sport === 'tennis'}}"><view class="section-label">训练模式（可选）</view><view class="label">训练类型（可多选）</view><view class="training-types"><view wx:for="{{trainingTypeOptions}}" wx:key="label" class="training-chip {{item.selected ? 'on' : ''}}" data-label="{{item.label}}" bindtap="onTrainingType">{{item.label}}</view></view><view class="field"><view class="label">今天主要训练内容</view><textarea class="textarea short" value="{{form.trainingFocus}}" data-field="trainingFocus" bindinput="onField" placeholder="如：二发稳定性、反手斜线"></textarea></view></view>
+
+        <view class="form-section"><view class="section-label">其他（全部可选）</view><view class="field"><view class="label">场地</view><input class="input" value="{{form.venue}}" data-field="venue" bindinput="onField" placeholder="如：天河体育中心"/></view><view class="field" wx:if="{{sport === 'badminton'}}"><view class="label">对手 / 搭档</view><input class="input" value="{{form.partners}}" data-field="partners" bindinput="onField" placeholder="可选"/></view><view class="field"><view class="label">主观强度 RPE（1-10）</view><view class="rpe-row"><view wx:for="{{rpeOptions}}" wx:key="*this" class="rpe {{form.rpe === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onRpe">{{item}}</view></view></view><view class="field"><view class="label">备注</view><textarea class="textarea" value="{{form.notes}}" data-field="notes" bindinput="onField" placeholder="今天感觉如何？记录值得记住的细节。"></textarea></view></view>
+        <button class="save-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onSave">{{editingId ? '保存修改' : '保存记录'}}</button><view class="form-tip">除日期外全部可选，随手记录也可以保存。</view><view class="form-bottom"></view>
       </scroll-view>
     </view>
   </view>
+  <bottom-nav selected="strength" />
 </view>

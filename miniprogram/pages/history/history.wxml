@@ -1,0 +1,47 @@
+<view class="page tab-page wm-host">
+  <brand-watermark size="page" position="tr" subtle />
+  <view class="wm-content">
+    <view class="page-head">
+      <view class="eyebrow">TIMELINE</view>
+      <view class="page-title">历史</view>
+      <view class="page-sub">训练 · 休息 · 未记录</view>
+    </view>
+
+    <view class="mode-switch">
+      <view class="mode {{mode === 'calendar' ? 'on' : ''}}" data-mode="calendar" bindtap="onMode">日历</view>
+      <view class="mode {{mode === 'timeline' ? 'on' : ''}}" data-mode="timeline" bindtap="onMode">时间线</view>
+    </view>
+
+    <scroll-view scroll-x class="filters" enhanced show-scrollbar="{{false}}">
+      <view class="filter-row">
+        <view wx:for="{{filters}}" wx:key="id" class="filter {{filter === item.id ? 'on' : ''}}" data-id="{{item.id}}" bindtap="onFilter">{{item.label}}</view>
+      </view>
+    </scroll-view>
+
+    <view wx:if="{{mode === 'calendar'}}" class="calendar-card wm-host">
+      <brand-watermark size="card" position="br" tone="ink" subtle />
+      <view class="wm-content">
+        <view class="month-head"><view class="month-btn" data-delta="-1" bindtap="onMonth">‹</view><view class="month-title">{{monthLabel}}</view><view class="month-btn" data-delta="1" bindtap="onMonth">›</view></view>
+        <view class="week-row"><text>日</text><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text><text>六</text></view>
+        <view class="calendar-grid">
+          <view wx:for="{{calendar}}" wx:key="key" class="day {{item.blank ? 'blank' : ''}} {{item.selected ? 'selected' : ''}}" data-date="{{item.date}}" bindtap="onSelectDay">
+            <text wx:if="{{!item.blank}}">{{item.day}}</text>
+            <view class="dots" wx:if="{{!item.blank}}"><text wx:if="{{item.strength}}" class="dot strength"></text><text wx:if="{{item.activity}}" class="dot activity"></text><text wx:if="{{item.rest}}" class="dot rest"></text></view>
+          </view>
+        </view>
+        <view class="calendar-summary"><text>训练 {{counts.training}}</text><text>休息 {{counts.rest}}</text><text class="summary-note">点击日期查看详情</text></view>
+      </view>
+    </view>
+
+    <view class="selected-head" wx:if="{{selectedDate}}"><text>{{selectedDate}}</text><text bindtap="onClearDay">查看全部</text></view>
+    <view class="timeline" wx:if="{{mode === 'timeline' || selectedDate}}">
+      <view class="row" wx:for="{{visibleRows}}" wx:key="id" data-id="{{item.id}}" data-sport="{{item.sport}}" bindtap="onOpen">
+        <view class="row-icon tone-{{item.tone}}">{{item.icon}}</view>
+        <view class="row-main"><view class="row-title"><text>{{item.title}}</text><text class="row-date">{{item.date}}</text></view><view class="row-detail">{{item.detail}} · {{item.date}}</view></view>
+        <view class="arrow" wx:if="{{item.sport !== 'rest'}}">›</view>
+      </view>
+      <view class="empty" wx:if="{{!visibleRows.length}}">这个范围还没有记录</view>
+    </view>
+  </view>
+  <bottom-nav selected="history" />
+</view>

@@ -9,6 +9,7 @@ Page({
   data: {
     active: null,
     recent: [],
+    templates: [],
     bodyParts: BODY_PARTS.map((id) => ({
       id,
       name: BODY_PART_LABELS[id],
@@ -37,12 +38,14 @@ Page({
     if (this.data.loading) return
     this.setData({ loading: true })
     try {
-      const [active, recent] = await Promise.all([
+      const [active, recent, templates] = await Promise.all([
         strength.getActiveSession(),
-        strength.getRecentSessions(20)
+        strength.getRecentSessions(20),
+        data.listTemplates()
       ])
       this.setData({
         active,
+        templates: templates.slice(0, 3),
         recent: recent.map((r) => Object.assign({}, r, {
           durationLabel: r.durationSec ? `${r.durationSec} 秒` : ''
         }))
@@ -125,5 +128,27 @@ Page({
   onOpenWorkout(e) {
     const id = e.currentTarget.dataset.id
     if (id) wx.navigateTo({ url: `/pages/workout/workout?id=${id}` })
+  },
+
+  onOpenTemplates() {
+    wx.navigateTo({ url: '/pages/templates/templates' })
+  },
+
+  onSport(e) {
+    wx.navigateTo({ url: `/pages/activity/activity?sport=${e.currentTarget.dataset.sport}` })
+  },
+
+  async onTemplate(e) {
+    const template = this.data.templates.find((t) => t.id === e.currentTarget.dataset.id)
+    if (!template || this.data.busy) return
+    this.setData({ busy: true })
+    try {
+      const session = await strength.startFromTemplate(template)
+      wx.navigateTo({ url: `/pages/workout/workout?id=${session.id}` })
+    } catch (err) {
+      wx.showToast({ title: err.message || '开始失败', icon: 'none' })
+    } finally {
+      this.setData({ busy: false })
+    }
   }
 })

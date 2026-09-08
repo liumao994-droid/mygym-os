@@ -4,9 +4,23 @@
 }
 
 .hero {
+  position: relative;
+  z-index: 1;
   padding: 38rpx 32rpx 36rpx;
   background: #172033;
   color: #fff;
+}
+
+.hero-top,
+.hero-status,
+.section-head,
+.sport-grid,
+.insight-card,
+.recent-panel,
+.account-line,
+.error {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-top {

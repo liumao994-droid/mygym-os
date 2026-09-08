@@ -1,4 +1,5 @@
-<view class="page">
+<view class="page tab-page wm-host">
+  <brand-watermark size="page" position="tl" subtle />
   <view class="page-head">
     <view class="head-copy">
       <view class="eyebrow">STRENGTH</view>
@@ -17,7 +18,9 @@
     <view class="active-meta">{{active.date}} · 点击继续</view>
   </view>
 
-  <view class="start-card">
+  <view class="start-card wm-host">
+    <brand-watermark size="card" position="br" tone="ink" subtle />
+    <view class="wm-content">
     <view class="card-kicker">选择部位</view>
     <view class="card-title">今天练什么？</view>
     <view class="card-sub">可以同时选择多个部位</view>
@@ -31,12 +34,24 @@
       ><text>{{item.name}}</text><text class="part-check" wx:if="{{item.selected}}">✓</text></view>
     </view>
     <button class="primary-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onStart">开始训练 <text>→</text></button>
+    </view>
   </view>
 
   <view class="quick-row">
     <button class="quick-btn" loading="{{busy}}" bindtap="onCopyLast"><text class="quick-icon copy-icon">⧉</text><view><text class="quick-title">复制上次</text><text class="quick-sub">快速开始</text></view></button>
     <button class="quick-btn" bindtap="onMarkRest"><text class="quick-icon rest-icon">月</text><view><text class="quick-title">记录休息</text><text class="quick-sub">恢复也是训练</text></view></button>
   </view>
+
+  <view class="section-head"><view><view class="section-kicker">MORE SPORTS</view><view class="section-title">记录其他运动</view></view></view>
+  <view class="other-sports">
+    <view class="other-card coral" data-sport="badminton" bindtap="onSport"><text>🏸</text><view><view>羽毛球</view><view>时长 · 单双打 · 局数胜负</view></view><text>›</text></view>
+    <view class="other-card cyan" data-sport="swimming" bindtap="onSport"><text>🏊</text><view><view>游泳</view><view>距离 · 泳姿 · 自动配速</view></view><text>›</text></view>
+    <view class="other-card yellow" data-sport="tennis" bindtap="onSport"><text>🎾</text><view><view>网球</view><view>逐盘比分 · 技术 · 体能</view></view><text>›</text></view>
+  </view>
+
+  <view class="section-head"><view><view class="section-kicker">TEMPLATES</view><view class="section-title">训练模板</view></view><view class="history-count" bindtap="onOpenTemplates">管理 ›</view></view>
+  <view class="template-list" wx:if="{{templates.length}}"><view class="template-row" wx:for="{{templates}}" wx:key="id" data-id="{{item.id}}" bindtap="onTemplate"><view><view class="recent-title">{{item.name}}</view><view class="recent-meta">{{item.items.length}} 个动作</view></view><view class="template-start">开始</view></view></view>
+  <view class="empty compact" wx:else>还没有模板，可在“我的 → 训练模板”中创建。</view>
 
   <view class="section-head">
     <view>
@@ -62,4 +77,5 @@
     </view>
   </view>
   <view class="empty" wx:else><view class="empty-mark">＋</view><view>还没有力量训练记录</view></view>
+  <bottom-nav selected="strength" />
 </view>

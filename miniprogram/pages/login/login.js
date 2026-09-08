@@ -13,6 +13,10 @@ Page({
   },
 
   onLoad() {
+    if (auth.isLoggedIn()) {
+      wx.reLaunch({ url: '/pages/home/home' })
+      return
+    }
     this.setData({
       apiBase: env.getApiBase(),
       canDevLogin: auth.canUseDevLogin()

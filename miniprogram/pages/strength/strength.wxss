@@ -5,6 +5,8 @@
 }
 
 .page-head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -162,6 +164,8 @@
 }
 
 .quick-row {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 16rpx;
   padding: 18rpx 24rpx 0;
@@ -221,6 +225,8 @@
 }
 
 .section-head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -240,6 +246,8 @@
 }
 
 .list-card {
+  position: relative;
+  z-index: 1;
   margin: 0 24rpx;
   padding: 0 24rpx;
   border: 1rpx solid #e2e6ec;
@@ -319,3 +327,34 @@
   color: #566171;
   font-size: 34rpx;
 }
+
+.other-sports,
+.template-list {
+  position: relative;
+  z-index: 1;
+  margin: 0 24rpx;
+}
+
+.other-card {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  margin-bottom: 12rpx;
+  padding: 21rpx 23rpx;
+  border-radius: 15rpx;
+}
+
+.other-card.coral { background: #ffdfd6; }
+.other-card.cyan { background: #d8f1f4; }
+.other-card.yellow { background: #f7e8a7; }
+.other-card > text:first-child { font-size: 34rpx; }
+.other-card > view { flex: 1; }
+.other-card > view > view:first-child { font-size: 25rpx; font-weight: 800; }
+.other-card > view > view:last-child { margin-top: 4rpx; color: #6f7784; font-size: 19rpx; }
+.other-card > text:last-child { color: #606b7b; font-size: 34rpx; }
+
+.template-list { padding: 0 22rpx; border: 1rpx solid #e2e6ec; border-radius: 16rpx; background: #fff; }
+.template-row { display: flex; align-items: center; justify-content: space-between; min-height: 100rpx; border-bottom: 1rpx solid #edf0f3; }
+.template-row:last-child { border-bottom: 0; }
+.template-start { padding: 10rpx 20rpx; border-radius: 10rpx; background: #edfaca; color: #526e1e; font-size: 20rpx; font-weight: 800; }
+.empty.compact { position: relative; z-index: 1; padding: 28rpx 20rpx; font-size: 20rpx; }

@@ -1,0 +1,36 @@
+.page { min-height: 100vh; background: #f2f4f7; }
+.page-head { display: flex; align-items: center; justify-content: space-between; padding: 34rpx 28rpx 22rpx; }
+.page-title { margin-top: 4rpx; font-size: 44rpx; font-weight: 850; }
+.avatar { display: flex; align-items: center; justify-content: center; width: 72rpx; height: 72rpx; border-radius: 50%; background: #172033; color: #b8f04b; font-size: 28rpx; font-weight: 800; }
+.profile-card { margin: 0 24rpx 18rpx; padding: 30rpx; border-radius: 16rpx; background: #172033; color: #fff; }
+.profile-name { font-size: 32rpx; font-weight: 800; }
+.profile-meta { margin-top: 7rpx; color: #aeb6c5; font-size: 21rpx; }
+.stats-card, .settings-card, .about-card { margin: 0 24rpx 20rpx; border: 1rpx solid #e1e5eb; border-radius: 16rpx; background: #fff; }
+.stats-card { padding: 26rpx 10rpx; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.stats-grid > view { text-align: center; }
+.stat-value, .stat-label { display: block; }
+.stat-value { font-size: 30rpx; font-weight: 850; }
+.stat-label { margin-top: 5rpx; color: #808a98; font-size: 18rpx; }
+.entry-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin: 0 24rpx 28rpx; }
+.entry { display: flex; flex-direction: column; align-items: center; gap: 10rpx; padding: 25rpx 10rpx; border: 1rpx solid #e1e5eb; border-radius: 16rpx; background: #fff; font-size: 22rpx; font-weight: 700; }
+.entry-icon { font-size: 35rpx; }
+.section-title { margin: 28rpx 24rpx 14rpx; font-size: 27rpx; font-weight: 850; }
+.setting-row, .action-row { display: flex; align-items: center; justify-content: space-between; min-height: 94rpx; padding: 0 24rpx; border-bottom: 1rpx solid #edf0f3; font-size: 24rpx; }
+.settings-card .action-row:last-child { border-bottom: 0; }
+.segment { display: flex; padding: 5rpx; border-radius: 11rpx; background: #eef1f4; }
+.segment text { padding: 11rpx 25rpx; border-radius: 8rpx; color: #7d8795; font-size: 21rpx; }
+.segment text.on { background: #172033; color: #b8f04b; }
+.setting-note { padding: 0 24rpx 20rpx; color: #8a93a1; font-size: 18rpx; }
+.row-right { display: flex; align-items: center; gap: 16rpx; color: #8a93a1; font-size: 19rpx; }
+.row-value { color: #768191; font-size: 20rpx; }
+.action-row { min-height: 112rpx; }
+.action-title { font-weight: 750; }
+.action-sub { margin-top: 5rpx; color: #8a93a1; font-size: 19rpx; }
+.action-row > text { color: #9ca3af; font-size: 35rpx; }
+.about-card { padding: 28rpx; }
+.about-brand { font-size: 31rpx; font-weight: 900; }
+.about-brand text { color: #6d991d; }
+.about-tag { margin-top: 2rpx; color: #8b94a1; font-size: 17rpx; letter-spacing: 3rpx; }
+.about-copy { margin-top: 18rpx; color: #6f7a8a; font-size: 21rpx; }
+.logout { margin: 8rpx 24rpx 28rpx; background: transparent; color: #b44747; font-size: 23rpx; }
