@@ -1,0 +1,16 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/home/home",
+    "pages/sandbox/sandbox"
+  ],
+  "window": {
+    "navigationBarTitleText": "MyGym OS",
+    "navigationBarBackgroundColor": "#2E4AAE",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5F7FC"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

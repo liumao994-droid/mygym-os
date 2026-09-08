@@ -1,0 +1,36 @@
+<view class="page">
+  <view class="card user-card" wx:if="{{user}}">
+    <view class="avatar">{{avatarChar}}</view>
+    <view class="user-info">
+      <view class="nickname">{{user.nickname}}</view>
+      <view class="muted">{{isWechat ? '微信账号' : '联调账号'}} · ID {{user.id}}</view>
+    </view>
+    <button class="ghost-btn small" bindtap="onLogout">退出</button>
+  </view>
+
+  <view class="muted base-line" wx:if="{{apiBase}}">API: {{apiBase}}</view>
+  <view class="error" wx:if="{{error}}">{{error}}</view>
+
+  <view class="ai-card card" wx:if="{{ai}}">
+    <view class="card-title">AI 分析额度(后端代理)</view>
+    <block wx:if="{{ai.enabled}}">
+      <view class="muted">今日剩余 {{ai.daily.remaining}} / {{ai.daily.limit}} · 本月剩余 {{ai.monthly.remaining}} / {{ai.monthly.limit}}</view>
+    </block>
+    <view class="muted" wx:else>AI 服务暂未配置</view>
+  </view>
+
+  <view class="section-title">最近数据(自己的账号)</view>
+  <view class="card sport-card" wx:for="{{sports}}" wx:key="id">
+    <view class="sport-head">
+      <text class="sport-emoji">{{item.emoji}}</text>
+      <text class="sport-name">{{item.label}}</text>
+    </view>
+    <view wx:if="{{item.recent.length}}" class="recent-item" wx:for="{{item.recent}}" wx:for-item="rec" wx:key="id">
+      <text>{{rec.date}}</text>
+      <text class="muted rec-summary">{{rec.summary}}</text>
+    </view>
+    <view wx:else class="muted">暂无记录</view>
+  </view>
+
+  <button class="primary-btn" bindtap="onOpenSandbox">运行 CRUD 链路测试</button>
+</view>

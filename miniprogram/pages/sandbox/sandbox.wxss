@@ -1,0 +1,44 @@
+.page {
+  padding-bottom: 60rpx;
+}
+
+.intro-title {
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.primary-btn {
+  margin: 32rpx 24rpx 0;
+  background: #2e4aae;
+  color: #fff;
+}
+
+.pass-badge {
+  margin: 24rpx;
+  text-align: center;
+  color: #047857;
+  font-weight: 700;
+  font-size: 36rpx;
+}
+
+.log-card {
+  margin-top: 24rpx;
+}
+
+.log-title {
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.log-scroll {
+  height: 640rpx;
+  background: #f8fafc;
+  border-radius: 12rpx;
+  padding: 16rpx;
+}
+
+.log-line {
+  font-size: 24rpx;
+  line-height: 1.7;
+  word-break: break-all;
+}

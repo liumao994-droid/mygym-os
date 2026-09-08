@@ -23,6 +23,12 @@ export interface AppConfig {
     dailyLimit: number
     monthlyLimit: number
   }
+  wechat: {
+    appId: string
+    appSecret: string
+    /** 仅测试注入用；生产使用微信官方固定地址 */
+    code2sessionUrl: string
+  }
   maxImportBytes: string
   version: string
 }
@@ -70,6 +76,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       dailyLimit: intEnv(env, 'AI_DAILY_LIMIT', 3),
       monthlyLimit: intEnv(env, 'AI_MONTHLY_LIMIT', 10),
     },
+    wechat: {
+      appId: env.WECHAT_APP_ID ?? '',
+      appSecret: env.WECHAT_APP_SECRET ?? '',
+      code2sessionUrl: env.WECHAT_CODE2SESSION_URL ?? 'https://api.weixin.qq.com/sns/jscode2session',
+    },
     maxImportBytes: env.MAX_IMPORT_BYTES ?? '25mb',
     version: '0.1.0',
   }
@@ -77,4 +88,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
 export function aiConfigured(cfg: AppConfig): boolean {
   return Boolean(cfg.ai.baseUrl && cfg.ai.apiKey && cfg.ai.model)
+}
+
+export function wechatConfigured(cfg: AppConfig): boolean {
+  return Boolean(cfg.wechat.appId && cfg.wechat.appSecret && cfg.wechat.code2sessionUrl)
 }

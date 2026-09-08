@@ -1,0 +1,31 @@
+<view class="page">
+  <view class="brand">
+    <view class="logo">🏋️</view>
+    <view class="title">MyGym OS</view>
+    <view class="subtitle">多用户云端训练 · Web 与小程序共用身份与数据</view>
+  </view>
+
+  <view class="card">
+    <view class="label">API 地址(不含 /api)</view>
+    <view class="row">
+      <input class="input" value="{{apiBase}}" placeholder="http://127.0.0.1:8787"
+        bindinput="onBaseInput" />
+      <button class="ghost-btn" size="mini" bindtap="onSaveBase">保存</button>
+    </view>
+    <view class="hint">本地联调:请保持地址可访问,并在开发者工具关闭域名校验。</view>
+  </view>
+
+  <button class="primary-btn" loading="{{busy}}" bindtap="onWechatLogin">微信一键登录</button>
+
+  <block wx:if="{{canDevLogin}}">
+    <view class="card dev-card">
+      <view class="label">开发联调登录(仅非正式版显示)</view>
+      <input class="input" value="{{nickname}}" bindinput="onNicknameInput" maxlength="24" />
+      <button class="ghost-btn wide" bindtap="onDevLogin">使用联调账号登录</button>
+    </view>
+  </block>
+
+  <view class="footer">
+    微信登录由后端通过 code2session 验证;小程序不接触 AppSecret / openid。
+  </view>
+</view>

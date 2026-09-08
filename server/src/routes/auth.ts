@@ -2,13 +2,14 @@ import { Router } from 'express'
 import type { AppConfig } from '../config.js'
 import type { Store } from '../db/sqlite.js'
 import { requireAuth, authOf, signToken } from '../auth.js'
-import { loginDev, wechatLoginPlaceholder } from '../services/users.js'
+import { loginDev, loginWithWechat } from '../services/users.js'
 
 /**
  * 认证路由。
  * 当前阶段:dev/mock 登录(明确标记,可由 DEV_AUTH_ENABLED=false 关闭)。
- * 未来:POST /api/auth/wechat 按 code2session 流程实现,签发同构 JWT,
- *      小程序端无需改动调用方式(仍是 Bearer token)。
+ * 微信:POST /api/auth/wechat 使用 wx.login code 走 code2session,
+ *      服务端持有 WECHAT_APP_SECRET,签发同构 JWT。
+ *      Web 与小程序共用同一 Bearer token 契约。
  */
 export function authRoutes(store: Store, cfg: AppConfig): Router {
   const r = Router()
@@ -25,9 +26,15 @@ export function authRoutes(store: Store, cfg: AppConfig): Router {
     res.json({ token, user })
   })
 
-  r.post('/wechat', (_req, res) => {
-    wechatLoginPlaceholder()
-    void res
+  r.post('/wechat', (req, res, next) => {
+    const body = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>
+    const code = typeof body.code === 'string' ? body.code : ''
+    loginWithWechat(store, cfg, code)
+      .then((user) => {
+        const token = signToken({ sub: user.id, nickname: user.nickname, provider: user.authProvider }, cfg.jwtSecret, cfg.jwtExpiresDays)
+        res.json({ token, user })
+      })
+      .catch(next)
   })
 
   r.get('/me', requireAuth(store, cfg), (req, res) => {

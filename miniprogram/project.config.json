@@ -1,0 +1,26 @@
+{
+  "description": "MyGym OS 微信小程序。正式发布前请把 appid 替换为你自己的小程序 AppID。",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "test" },
+      { "type": "file", "value": "package.json" },
+      { "type": "file", "value": "README.md" }
+    ],
+    "include": []
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "newFeature": true,
+    "bigPackageSizeSupport": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "latest",
+  "appid": "touristappid",
+  "projectname": "mygym-os-miniprogram",
+  "miniprogramRoot": "./",
+  "condition": {}
+}

@@ -1,0 +1,108 @@
+.page {
+  padding-bottom: 48rpx;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  background: #2e4aae;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.nickname {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.base-line {
+  padding: 0 28rpx;
+  word-break: break-all;
+}
+
+.error {
+  margin: 20rpx 28rpx 0;
+  color: #b91c1c;
+}
+
+.ai-card {
+  border-left: 8rpx solid #6f8fd8;
+}
+
+.card-title {
+  font-weight: 600;
+  margin-bottom: 10rpx;
+}
+
+.section-title {
+  margin: 28rpx 28rpx 4rpx;
+  color: #374151;
+  font-weight: 600;
+}
+
+.sport-card {
+  padding-top: 20rpx;
+  padding-bottom: 20rpx;
+}
+
+.sport-head {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.sport-emoji {
+  font-size: 34rpx;
+}
+
+.sport-name {
+  font-weight: 600;
+}
+
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 8rpx 0;
+}
+
+.rec-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.ghost-btn {
+  background: #eef2ff;
+  color: #2e4aae;
+  border: 1rpx solid #c7d2fe;
+}
+
+.small {
+  font-size: 24rpx;
+  padding: 0 20rpx;
+  line-height: 2.2;
+}
+
+.primary-btn {
+  margin: 40rpx 24rpx 0;
+  background: #2e4aae;
+  color: #fff;
+}

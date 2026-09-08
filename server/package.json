@@ -11,7 +11,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p .",
     "start": "node dist/src/index.js",
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test --test-force-exit test/*.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

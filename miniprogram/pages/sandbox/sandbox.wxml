@@ -1,0 +1,19 @@
+<view class="page">
+  <view class="card intro">
+    <view class="intro-title">验证链路</view>
+    <view class="muted">登录 → 当前用户 → 动作库 → 创建训练 → 加动作/组 → 读回 → 修改 → 删除。仅操作本次自检创建的 demo 会话,不影响真实数据。</view>
+  </view>
+
+  <button class="primary-btn" loading="{{running}}" disabled="{{running}}" bindtap="onRunCrud">
+    {{running ? '执行中…' : '运行完整 CRUD 链路'}}
+  </button>
+  <view class="pass-badge" wx:if="{{passed}}">✅ PASS</view>
+
+  <view class="log-card card">
+    <view class="log-title">执行日志</view>
+    <scroll-view scroll-y class="log-scroll">
+      <view class="log-line" wx:for="{{logs}}" wx:key="id">{{item.text}}</view>
+      <view class="muted" wx:if="{{!logs.length}}">暂无日志</view>
+    </scroll-view>
+  </view>
+</view>

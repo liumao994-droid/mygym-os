@@ -17,6 +17,15 @@ const mockBehavior: { mode: 'ok' | 'error' | 'timeout'; delay: number; calls: nu
 let mockServer: Server
 let mockPort = 0
 
+const wechatBehavior: { mode: 'ok' | 'invalid' | 'upstream'; openid: string; receivedSecret: string; receivedCode: string } = {
+  mode: 'ok',
+  openid: '',
+  receivedSecret: '',
+  receivedCode: '',
+}
+let wechatMockServer: Server
+let wechatMockPort = 0
+
 async function startMockProvider(): Promise<void> {
   if (mockPort) return
   mockServer = createHttpServer((req, res) => {
@@ -46,6 +55,33 @@ async function startMockProvider(): Promise<void> {
 }
 
 before(startMockProvider)
+
+async function startWechatMock(): Promise<void> {
+  if (wechatMockPort) return
+  wechatMockServer = createHttpServer((req, res) => {
+    const q = new URL(req.url ?? '/', 'http://127.0.0.1').searchParams
+    wechatBehavior.receivedSecret = q.get('secret') ?? ''
+    wechatBehavior.receivedCode = q.get('js_code') ?? ''
+    if (wechatBehavior.mode === 'invalid') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ errcode: 40029, errmsg: 'invalid code' }))
+      return
+    }
+    if (wechatBehavior.mode === 'upstream') {
+      res.writeHead(500)
+      res.end('upstream boom')
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ openid: wechatBehavior.openid, session_key: 'fake-session-key', unionid: undefined }))
+  })
+  wechatMockServer.keepAliveTimeout = 1000
+  await new Promise<void>((resolve) => wechatMockServer.listen(0, '127.0.0.1', resolve))
+  wechatMockServer.unref()
+  wechatMockPort = (wechatMockServer.address() as { port: number }).port
+}
+
+before(startWechatMock)
 
 /* ---------------- 测试实例 ---------------- */
 
@@ -169,12 +205,120 @@ test('me:带 token 返回用户,不带/坏 token 401', async () => {
   assert.equal(bad.status, 401)
 })
 
-test('dev 登录:空昵称 400;微信端点 501 占位', async () => {
+test('dev 登录:空昵称 400;微信未配置 503', async () => {
   const empty = await api(url, '/auth/dev-login', { method: 'POST', body: { nickname: '  ' } })
   assert.equal(empty.status, 400)
   const wx = await api(url, '/auth/wechat', { method: 'POST', body: { code: 'x' } })
-  assert.equal(wx.status, 501)
-  assert.equal(wx.json.error, 'NOT_IMPLEMENTED')
+  assert.equal(wx.status, 503)
+  assert.equal(wx.json.error, 'WECHAT_NOT_CONFIGURED')
+})
+
+test('微信登录:服务端 code2session 映射同一 openid 到同一用户并可完整 CRUD', async () => {
+  const wxUrl = await startApp({
+    WECHAT_APP_ID: 'wx-test-app',
+    WECHAT_APP_SECRET: 'wechat-app-secret-test',
+    WECHAT_CODE2SESSION_URL: `http://127.0.0.1:${wechatMockPort}/sns/jscode2session`,
+  })
+  wechatBehavior.mode = 'ok'
+  wechatBehavior.openid = 'openid-wechat-user-a'
+  wechatBehavior.receivedSecret = ''
+
+  // wx.login 的临时 code 由客户端提供;AppSecret 由服务端附加,前端无法指定
+  const first = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'temporary-code-1' } })
+  assert.equal(first.status, 200, JSON.stringify(first.json))
+  assert.equal(first.json.user.authProvider, 'wechat')
+  assert.equal(wechatBehavior.receivedSecret, 'wechat-app-secret-test')
+  const wxToken = first.json.token as string
+  const wxUserId = first.json.user.id as string
+
+  // 同一微信 openid 再次登录(新 code)必须回到同一 MyGym 用户,不能新造账号
+  const second = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'temporary-code-2' } })
+  assert.equal(second.status, 200)
+  assert.equal(second.json.user.id, wxUserId)
+
+  const me = await api(wxUrl, '/auth/me', { token: wxToken })
+  assert.equal(me.status, 200)
+  assert.equal(me.json.user.authProvider, 'wechat')
+
+  // 新微信用户应像 dev 用户一样拥有默认动作库
+  const exercises = await api(wxUrl, '/exercises', { token: wxToken })
+  assert.equal(exercises.status, 200)
+  assert.ok(exercises.json.exercises.length >= 30)
+
+  // 完整 CRUD:请求体伪造 userId 也会被服务端强制归属到微信身份
+  const now = Date.now()
+  const created = await api(wxUrl, '/sessions', {
+    method: 'POST',
+    token: wxToken,
+    body: {
+      id: 'wx-crud-session-1',
+      date: '2026-09-08',
+      status: 'completed',
+      bodyParts: ['chest'],
+      title: '微信 CRUD 链路',
+      startedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      userId: 'someone-else',
+    },
+  })
+  assert.equal(created.status, 201)
+  assert.equal(created.json.session.userId, wxUserId)
+
+  const we = await api(wxUrl, `/sessions/${created.json.session.id}/exercises`, {
+    method: 'POST',
+    token: wxToken,
+    body: { exerciseId: exercises.json.exercises[0].id, userId: 'someone-else' },
+  })
+  assert.equal(we.status, 201)
+  const set = await api(wxUrl, `/sessions/${created.json.session.id}/sets`, {
+    method: 'POST',
+    token: wxToken,
+    body: {
+      workoutExerciseId: we.json.workoutExercise.id,
+      weight: 60,
+      reps: 10,
+      weightType: 'weight',
+      date: '2026-09-08',
+      userId: 'someone-else',
+    },
+  })
+  assert.equal(set.status, 201)
+
+  const detail = await api(wxUrl, `/sessions/${created.json.session.id}`, { token: wxToken })
+  assert.equal(detail.status, 200)
+  assert.equal(detail.json.workoutExercises.length, 1)
+  assert.equal(detail.json.workoutExercises[0].sets[0].reps, 10)
+
+  const patched = await api(wxUrl, `/sessions/${created.json.session.id}`, {
+    method: 'PATCH',
+    token: wxToken,
+    body: { notes: '小程序端修改成功', userId: 'someone-else' },
+  })
+  assert.equal(patched.status, 200)
+  assert.equal(patched.json.session.notes, '小程序端修改成功')
+
+  const removed = await api(wxUrl, `/sessions/${created.json.session.id}`, { method: 'DELETE', token: wxToken })
+  assert.equal(removed.status, 200)
+  const afterDelete = await api(wxUrl, `/sessions/${created.json.session.id}`, { token: wxToken })
+  assert.equal(afterDelete.status, 404)
+})
+
+test('微信登录:code 无效 / 微信上游错误映射为客户端可读错误', async () => {
+  const wxUrl = await startApp({
+    WECHAT_APP_ID: 'wx-test-app',
+    WECHAT_APP_SECRET: 'wechat-app-secret-test',
+    WECHAT_CODE2SESSION_URL: `http://127.0.0.1:${wechatMockPort}/sns/jscode2session`,
+  })
+  wechatBehavior.mode = 'invalid'
+  const invalid = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'expired-code' } })
+  assert.equal(invalid.status, 401)
+  assert.equal(invalid.json.error, 'WECHAT_CODE_INVALID')
+
+  wechatBehavior.mode = 'upstream'
+  const upstream = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'code-x' } })
+  assert.equal(upstream.status, 502)
+  assert.equal(upstream.json.error, 'WECHAT_UPSTREAM_ERROR')
 })
 
 test('未登录访问数据接口 401', async () => {
@@ -564,4 +708,6 @@ after(async () => {
   await Promise.all(toClose.map((t) => t.close()))
   mockServer.closeAllConnections?.()
   await new Promise<void>((resolve) => mockServer.close(() => resolve()))
+  wechatMockServer.closeAllConnections?.()
+  await new Promise<void>((resolve) => wechatMockServer.close(() => resolve()))
 })

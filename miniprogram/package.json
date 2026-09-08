@@ -1,0 +1,10 @@
+{
+  "name": "mygym-os-miniprogram",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MyGym OS 微信小程序客户端(原生小程序,无第三方运行时依赖)",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/"
+  }
+}

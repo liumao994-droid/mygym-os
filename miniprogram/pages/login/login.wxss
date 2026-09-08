@@ -1,0 +1,78 @@
+.page {
+  padding: 80rpx 32rpx 48rpx;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 48rpx;
+}
+
+.logo {
+  font-size: 96rpx;
+}
+
+.title {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #2e4aae;
+  margin-top: 12rpx;
+}
+
+.subtitle {
+  color: #6b7280;
+  margin-top: 8rpx;
+}
+
+.label {
+  font-size: 24rpx;
+  color: #6b7280;
+  margin-bottom: 12rpx;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.input {
+  flex: 1;
+  height: 72rpx;
+  background: #f5f7fc;
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+}
+
+.hint {
+  color: #9ca3af;
+  font-size: 22rpx;
+  margin-top: 12rpx;
+}
+
+.ghost-btn {
+  background: #eef2ff;
+  color: #2e4aae;
+  border: 1rpx solid #c7d2fe;
+}
+
+.primary-btn {
+  margin-top: 24rpx;
+  background: #2e4aae;
+  color: #fff;
+}
+
+.dev-card {
+  margin-top: 24rpx;
+}
+
+.wide {
+  width: 100%;
+  margin-top: 16rpx;
+}
+
+.footer {
+  margin-top: 48rpx;
+  color: #9ca3af;
+  font-size: 22rpx;
+  text-align: center;
+}
