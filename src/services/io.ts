@@ -9,7 +9,8 @@ import { setVolume } from './calc'
  * JSON:完整备份(版本化);CSV:训练组明细,便于分析。
  */
 
-export async function exportJSON(): Promise<{ blob: Blob; filename: string }> {
+/** 当前本地资料的可传输快照。认证信息与旧版 AI Key 永不包含其中。 */
+export async function createBackup(): Promise<BackupFile> {
   const [exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, appState, activitySessions] =
     await Promise.all([
       db.exercises.toArray(),
@@ -23,9 +24,9 @@ export async function exportJSON(): Promise<{ blob: Blob; filename: string }> {
       db.appState.toArray(),
       db.activitySessions.toArray(),
     ])
-  const backup: BackupFile = {
+  return {
     app: 'MyGymOS',
-    schema: 2,
+    schema: 3,
     exportedAt: new Date().toISOString(),
     unit: 'kg',
     data: {
@@ -38,10 +39,17 @@ export async function exportJSON(): Promise<{ blob: Blob; filename: string }> {
       templates,
       personalRecords,
       prEvents,
-      appState,
+      appState: appState.filter((row) => row.key !== 'aiConfig'),
     },
   }
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+}
+
+export function backupBlob(backup: BackupFile): Blob {
+  return new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+}
+
+export async function exportJSON(): Promise<{ blob: Blob; filename: string }> {
+  const blob = backupBlob(await createBackup())
   const date = new Date().toISOString().slice(0, 10)
   return { blob, filename: `mygym-os-backup-${date}.json` }
 }
@@ -117,6 +125,12 @@ export interface ImportResult {
   skippedActivities: number
 }
 
+/** 导入到账号隔离库时，归属只由当前数据库 hook 写入，绝不信任备份内的 userId。 */
+function stripUserId<T>(row: T): T {
+  const { userId: _userId, ...rest } = row as T & { userId?: string }
+  return rest as T
+}
+
 /** 导入 JSON 备份。mode=merge 合并(同 ID 覆盖),mode=replace 清空后导入 */
 export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'): Promise<ImportResult> {
   const text = await file.text()
@@ -126,7 +140,11 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
   } catch {
     throw new Error('文件不是有效的 JSON')
   }
-  const backup = parsed as BackupFile
+  return importBackup(parsed as BackupFile, mode)
+}
+
+/** 将已经解析的备份合并/恢复到当前资料库。 */
+export async function importBackup(backup: BackupFile, mode: 'merge' | 'replace' = 'merge'): Promise<ImportResult> {
   if (!backup || backup.app !== 'MyGymOS' || !backup.data) {
     throw new Error('不是 MyGym OS 的备份文件')
   }
@@ -149,19 +167,20 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     }
   }
   const remapExerciseId = (id: string): string => exerciseIdMap.get(id) ?? id
-  const exercises = d.exercises.map((exercise) => ({ ...exercise, id: remapExerciseId(exercise.id) }))
-  const workoutExercises = d.workoutExercises?.map((item) => ({ ...item, exerciseId: remapExerciseId(item.exerciseId) }))
-  const sets = d.sets?.map((set) => ({ ...set, exerciseId: remapExerciseId(set.exerciseId) }))
+  const exercises = d.exercises.map((exercise) => ({ ...stripUserId(exercise), id: remapExerciseId(exercise.id) }))
+  const sessions = d.sessions.map(stripUserId)
+  const workoutExercises = d.workoutExercises?.map((item) => ({ ...stripUserId(item), exerciseId: remapExerciseId(item.exerciseId) }))
+  const sets = d.sets?.map((set) => ({ ...stripUserId(set), exerciseId: remapExerciseId(set.exerciseId) }))
   const templates = d.templates?.map((template) => ({
-    ...template,
+    ...stripUserId(template),
     items: template.items.map((item) => ({ ...item, exerciseId: remapExerciseId(item.exerciseId) })),
   }))
   const personalRecords = d.personalRecords?.map((record) => ({
-    ...record,
+    ...stripUserId(record),
     id: `${remapExerciseId(record.exerciseId)}:${record.type}`,
     exerciseId: remapExerciseId(record.exerciseId),
   }))
-  const prEvents = d.prEvents?.map((event) => ({ ...event, exerciseId: remapExerciseId(event.exerciseId) }))
+  const prEvents = d.prEvents?.map((event) => ({ ...stripUserId(event), exerciseId: remapExerciseId(event.exerciseId) }))
   if (mode === 'replace') {
     await db.transaction(
       'rw',
@@ -188,21 +207,22 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
     (a) => a && typeof a.id === 'string' && typeof a.sport === 'string' && typeof a.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(a.date),
   )
   const skippedActivities = allActivitySessions.filter((a) => !SPORT_TYPES.includes(a.sport as SportType)).length
-  const activitySessions = allActivitySessions.filter((a) => SPORT_TYPES.includes(a.sport as SportType))
+  const activitySessions = allActivitySessions.filter((a) => SPORT_TYPES.includes(a.sport as SportType)).map(stripUserId)
+  const dailyStatuses = d.dailyStatuses?.map(stripUserId)
   await db.transaction(
     'rw',
     [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.appState, db.activitySessions],
     async () => {
       if (exercises) await db.exercises.bulkPut(exercises)
-      if (d.sessions) await db.sessions.bulkPut(d.sessions)
+      if (sessions) await db.sessions.bulkPut(sessions)
       if (activitySessions.length) await db.activitySessions.bulkPut(activitySessions)
       if (workoutExercises) await db.workoutExercises.bulkPut(workoutExercises)
       if (sets) await db.sets.bulkPut(sets)
-      if (d.dailyStatuses) await db.dailyStatuses.bulkPut(d.dailyStatuses)
+      if (dailyStatuses) await db.dailyStatuses.bulkPut(dailyStatuses)
       if (templates) await db.templates.bulkPut(templates)
       if (personalRecords) await db.personalRecords.bulkPut(personalRecords)
       if (prEvents) await db.prEvents.bulkPut(prEvents)
-      if (d.appState) await db.appState.bulkPut(d.appState)
+      if (d.appState) await db.appState.bulkPut(d.appState.filter((row) => row.key !== 'aiConfig'))
     },
   )
   await rebuildAllPRs()
@@ -217,5 +237,7 @@ export async function importJSON(file: File, mode: 'merge' | 'replace' = 'merge'
 
 /** 确保首次启动基础数据存在 */
 export async function bootstrapDB(): Promise<void> {
+  // 清除旧版保存在 IndexedDB 的第三方 AI Key；新版只使用后端代理。
+  await db.appState.delete('aiConfig')
   await ensureDefaultExercises()
 }

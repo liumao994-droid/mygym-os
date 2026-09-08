@@ -1,0 +1,27 @@
+{
+  "name": "mygym-api",
+  "private": true,
+  "version": "0.1.0",
+  "description": "MyGym OS 后端 API:用户身份 / 云端数据(userId 隔离)/ AI 代理与限额",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p .",
+    "start": "node dist/src/index.js",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^24.13.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

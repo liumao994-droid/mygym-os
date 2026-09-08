@@ -12,6 +12,42 @@
 
 export type ID = string
 
+/* =============== 用户身份(统一身份层) =============== */
+
+/**
+ * 认证提供方 —— 平台特定信息(如微信 OpenID)只存在于
+ * AuthIdentity 映射表中,业务层永远只面对统一的 User。
+ * 未来新增登录方式只需扩展此联合类型与对应的 identity 绑定。
+ */
+export type AuthProvider = 'dev' | 'wechat' | 'phone' | 'local'
+
+/**
+ * 统一用户模型(Web 与未来微信小程序共用)。
+ * 服务端为权威来源;本地仅缓存当前登录者。
+ */
+export interface User {
+  id: ID
+  nickname: string
+  avatar?: string
+  authProvider: AuthProvider
+  status: 'active' | 'disabled'
+  createdAt: number
+  updatedAt: number
+}
+
+/**
+ * 平台身份绑定(如 provider='wechat', providerId=openid)。
+ * 业务层不直接接触 providerId,实现"不把微信字段硬编码进业务层"。
+ */
+export interface AuthIdentity {
+  id: ID
+  userId: ID
+  provider: AuthProvider
+  /** 平台内唯一标识(微信 openid / 手机号等),仅服务端存储 */
+  providerId: string
+  createdAt: number
+}
+
 /** 六大一级训练部位(固定,不擅自扩展) */
 export const BODY_PARTS = ['chest', 'shoulders', 'back', 'biceps', 'triceps', 'legs'] as const
 export type BodyPartId = (typeof BODY_PARTS)[number]
@@ -111,6 +147,8 @@ export interface ActivityScore {
 /** 通用运动记录(羽毛球等非力量运动) */
 export interface ActivitySession {
   id: ID
+  /** 归属用户(登录后写入;旧本地数据为空,登录认领时补齐) */
+  userId?: ID
   sport: NonStrengthSport
   /** 本地日期 YYYY-MM-DD */
   date: string
@@ -219,6 +257,7 @@ export const FEEL_LABEL: Record<FeelLevel, string> = {
 /** 动作 */
 export interface Exercise {
   id: ID
+  userId?: ID
   name: string
   bodyPart: BodyPartId
   equipment: EquipmentId
@@ -234,6 +273,8 @@ export interface Exercise {
 /** 一次训练(会话) */
 export interface WorkoutSession {
   id: ID
+  /** 归属用户(登录后写入;旧本地数据为空,登录认领时补齐) */
+  userId?: ID
   /** 本地日期 YYYY-MM-DD(与 createdAt 时区一致) */
   date: string
   status: SessionStatus
@@ -257,6 +298,7 @@ export interface WorkoutSession {
 /** 训练中的某个动作条目 */
 export interface WorkoutExercise {
   id: ID
+  userId?: ID
   sessionId: ID
   exerciseId: ID
   order: number
@@ -267,6 +309,7 @@ export interface WorkoutExercise {
 /** 单组数据 —— 永不折叠的底层事实 */
 export interface WorkoutSet {
   id: ID
+  userId?: ID
   workoutExerciseId: ID
   /** 冗余字段,用于索引查询 */
   sessionId: ID
@@ -286,6 +329,8 @@ export interface WorkoutSet {
 /** 日状态:无记录 = unrecorded(无行);主动休息 = rest */
 export interface DailyStatus {
   date: string
+  /** 归属用户(登录后写入;旧本地数据为空,登录认领时补齐) */
+  userId?: ID
   status: 'rest'
   note?: string
   isDemo?: 1
@@ -294,6 +339,7 @@ export interface DailyStatus {
 /** 训练模板 */
 export interface WorkoutTemplate {
   id: ID
+  userId?: ID
   name: string
   bodyParts: BodyPartId[]
   items: {
@@ -319,6 +365,7 @@ export const PR_TYPE_LABEL: Record<PRType, string> = {
 /** 个人纪录(每个 动作+类型 一行,变更时重算) */
 export interface PersonalRecord {
   id: string // `${exerciseId}:${type}`
+  userId?: ID
   exerciseId: ID
   type: PRType
   value: number
@@ -333,6 +380,7 @@ export interface PersonalRecord {
 /** PR 事件日志(只追加),用于里程碑 / 「最近进步」/ 新 PR 庆祝 */
 export interface PREvent {
   id: ID
+  userId?: ID
   exerciseId: ID
   type: PRType
   value: number
@@ -349,6 +397,7 @@ export interface PREvent {
 /** AI 生成的深度分析缓存(仅在用户主动点击时写入) */
 export interface AIAnalysis {
   id: string // e.g. `month:2026-09` / `year:2026`
+  userId?: ID
   kind: 'month' | 'year'
   period: string
   content: string
@@ -363,12 +412,18 @@ export interface AppStateRow {
   updatedAt: number
 }
 
-/** 导出文件结构(版本化,便于未来迁移) */
+/**
+ * 导出文件结构(版本化,便于未来迁移)。
+ * schema 3:所有行携带可选 userId(云端账号标识);
+ * 导入端同时兼容 schema 2(无 userId 的旧单用户备份)与 schema 3。
+ */
 export interface BackupFile {
   app: 'MyGymOS'
-  schema: 2
+  schema: 2 | 3
   exportedAt: string
   unit: 'kg' | 'lb'
+  /** schema 3 起可选:导出账号昵称(仅提示用途,导入时以导入者身份绑定,不得越权) */
+  exportedBy?: { id: string; nickname: string }
   data: {
     exercises: Exercise[]
     sessions: WorkoutSession[]
@@ -382,4 +437,17 @@ export interface BackupFile {
     prEvents: PREvent[]
     appState: AppStateRow[]
   }
+}
+
+/** 云端同步/迁移状态(记录在 appState,支持断点与防重复迁移) */
+export interface CloudMigrationState {
+  status: 'idle' | 'running' | 'done' | 'failed'
+  /** 本机旧数据是否已认领(复制进当前账号的本地库) */
+  localAdopted: boolean
+  /** 云端上传是否完成 */
+  cloudUploaded: boolean
+  counts?: Record<string, number>
+  startedAt?: number
+  finishedAt?: number
+  error?: string
 }

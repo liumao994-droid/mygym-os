@@ -275,7 +275,15 @@ export function AIAnalysisSheet({
       setContent(text)
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      setError(msg === 'AI_NOT_CONFIGURED' ? '尚未配置 AI 服务' : msg)
+      setError(
+        msg === 'AI_NOT_CONFIGURED'
+          ? 'AI 服务暂未配置'
+          : msg === 'UNAUTHORIZED'
+            ? '请先登录后再使用 AI 分析'
+            : msg === 'AI_QUOTA_EXCEEDED'
+              ? '本周期 AI 分析额度已用完'
+              : msg,
+      )
     } finally {
       setLoading(false)
     }
@@ -302,8 +310,8 @@ export function AIAnalysisSheet({
             {error && (
               <Card className="!bg-warn/[0.08] text-[13px] leading-relaxed text-warn ring-warn/25">
                 {error}
-                {error === '尚未配置 AI 服务' && (
-                  <span className="mt-1 block text-ink-3">在「我的 → AI 分析设置」中填入 OpenAI 兼容接口的地址、Key 与模型名即可使用。没有配置也不影响任何本地功能。</span>
+                {error === 'AI 服务暂未配置' && (
+                  <span className="mt-1 block text-ink-3">AI 服务尚未由维护者配置。没有配置也不影响任何本地功能。</span>
                 )}
               </Card>
             )}

@@ -1,6 +1,7 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useSettings } from '@/store/settings'
+import { useAuth } from '@/store/auth'
 import { bootstrapDB } from '@/services/io'
 import { BottomNav } from '@/components/BottomNav'
 import HomePage from '@/pages/HomePage'
@@ -57,16 +58,25 @@ function ScrollToTop() {
 }
 
 export default function App() {
-  const hydrate = useSettings((s) => s.hydrate)
+  const hydrateSettings = useSettings((s) => s.hydrate)
+  const hydrateAuth = useAuth((s) => s.hydrate)
+  const authStatus = useAuth((s) => s.status)
+  const dbEpoch = useAuth((s) => s.dbEpoch)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    Promise.all([hydrate(), bootstrapDB()])
+    void hydrateAuth().catch((e) => console.error('认证初始化失败', e))
+  }, [hydrateAuth])
+
+  useEffect(() => {
+    if (authStatus === 'unknown') return
+    setReady(false)
+    Promise.all([hydrateSettings(), bootstrapDB()])
       .catch((e) => console.error('启动失败', e))
       .finally(() => setReady(true))
-  }, [hydrate])
+  }, [authStatus, dbEpoch, hydrateSettings])
 
-  if (!ready) {
+  if (!ready || authStatus === 'unknown') {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-3 bg-bg">
         <div className="text-4xl font-black tracking-tight">
@@ -79,7 +89,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <HashRouter>
+      <HashRouter key={dbEpoch}>
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<HomePage />} />

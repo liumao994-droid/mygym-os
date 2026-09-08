@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDataStats } from '@/db/db'
+import { getDataStats, getLegacyDataCounts } from '@/db/db'
 import { sumAllVolume } from '@/services/stats'
 import { clearDemoData, clearAllData } from '@/services/repo'
 import { exportJSON, exportCSV, importJSON, downloadBlob } from '@/services/io'
-import { DEFAULT_AI_CONFIG, getAIConfig, saveAIConfig, type AIConfig } from '@/services/ai'
+import { api, type AIQuotaResponse } from '@/services/api'
+import { migrateLegacyToCloud, restoreFromCloud, syncToCloud } from '@/services/cloud'
 import { fmtVolume, cn } from '@/lib/util'
 import { Card, PageHeader, SectionTitle, Sheet, Button } from '@/components/ui/basic'
 import { useSettings, type ThemeMode, type Unit, toast } from '@/store/settings'
+import { useAuth } from '@/store/auth'
 import { BrandWatermark, WM_PANEL } from '@/components/BrandWatermark'
 
 /**
@@ -21,11 +23,19 @@ export default function MePage() {
   const [volume, setVolume] = useState<number | null>(null)
   const [nameDraft, setNameDraft] = useState(nickname)
   const [aiOpen, setAiOpen] = useState(false)
+  const { user, status, loginWithNickname, logout } = useAuth()
+  const [loginName, setLoginName] = useState(nickname)
+  const [cloudBusy, setCloudBusy] = useState(false)
+  const [legacyCounts, setLegacyCounts] = useState<{ sessions: number; sets: number; activities: number } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     refreshStats()
   }, [])
+
+  useEffect(() => {
+    if (status === 'loggedIn') void getLegacyDataCounts().then(setLegacyCounts)
+  }, [status])
 
   function refreshStats() {
     getDataStats().then(setStats)
@@ -53,6 +63,38 @@ export default function MePage() {
       refreshStats()
     } catch (e) {
       toast(e instanceof Error ? e.message : '导入失败', 'error')
+    }
+  }
+
+  async function handleLogin() {
+    try {
+      await loginWithNickname(loginName)
+      await setNickname(loginName.trim())
+      toast('已登录，本机数据已切换到该账号')
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '登录失败', 'error')
+    }
+  }
+
+  async function handleCloud(action: 'migrate' | 'upload' | 'restore') {
+    setCloudBusy(true)
+    try {
+      if (action === 'migrate') {
+        await migrateLegacyToCloud()
+        setLegacyCounts({ sessions: 0, sets: 0, activities: 0 })
+        toast('旧数据已认领并上传到云端')
+      } else if (action === 'upload') {
+        await syncToCloud()
+        toast('已上传当前本机资料')
+      } else {
+        const result = await restoreFromCloud()
+        toast(`已从云端合并 ${result.sessions} 次训练 / ${result.sets} 组`)
+        refreshStats()
+      }
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '云端操作失败', 'error')
+    } finally {
+      setCloudBusy(false)
     }
   }
 
@@ -84,6 +126,46 @@ export default function MePage() {
               <div className="mt-0.5 text-[11px] text-ink-3">总量 kg</div>
             </div>
           </div>
+        </Card>
+
+        <SectionTitle title="账号与云端" />
+        <Card className="space-y-3 !p-4">
+          {status === 'loggedIn' && user ? (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-semibold">{user.nickname}</div>
+                  <div className="mt-0.5 text-xs text-ink-3">已登录 · 资料按账号隔离</div>
+                </div>
+                <Button variant="secondary" size="sm" onClick={logout}>退出</Button>
+              </div>
+              {legacyCounts && (legacyCounts.sessions > 0 || legacyCounts.sets > 0 || legacyCounts.activities > 0) ? (
+                <Button block loading={cloudBusy} onClick={() => void handleCloud('migrate')}>
+                  认领旧本机数据并上传
+                </Button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Button variant="secondary" loading={cloudBusy} onClick={() => void handleCloud('upload')}>上传到云端</Button>
+                  <Button variant="secondary" loading={cloudBusy} onClick={() => void handleCloud('restore')}>从云端恢复</Button>
+                </div>
+              )}
+              <p className="text-[11px] leading-relaxed text-ink-3">迁移和恢复均为合并操作，不会删除原有本机资料。</p>
+            </>
+          ) : (
+            <>
+              <div className="text-[13px] leading-relaxed text-ink-3">登录后可隔离不同账号资料，并手动同步至云端。</div>
+              <div className="flex gap-2">
+                <input
+                  value={loginName}
+                  maxLength={24}
+                  onChange={(e) => setLoginName(e.target.value)}
+                  placeholder="输入昵称登录"
+                  className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm outline-none ring-1 ring-line focus:ring-accent/50"
+                />
+                <Button loading={cloudBusy} onClick={() => void handleLogin()}>登录</Button>
+              </div>
+            </>
+          )}
         </Card>
 
         {/* 功能入口 */}
@@ -170,7 +252,7 @@ export default function MePage() {
           </button>
           <button className="flex w-full items-center gap-3 p-4 text-left" onClick={() => setAiOpen(true)}>
             <span className="w-20 text-[15px] text-ink-2">AI 分析</span>
-            <span className="flex-1 text-right text-xs text-ink-3">配置自己的 AI 接口(可选)</span>
+            <span className="flex-1 text-right text-xs text-ink-3">云端代理 · 按账号限额</span>
             <span className="text-ink-3">›</span>
           </button>
         </Card>
@@ -200,7 +282,7 @@ export default function MePage() {
             }}
           />
           <p className="text-[11px] leading-relaxed text-ink-3">
-            数据全部保存在本机浏览器,不上传任何服务器。建议定期导出 JSON 备份;换设备时用「导入」恢复。
+            本机备份独立可用；登录后可手动上传或从云端恢复。认证信息和 AI Key 不会写入备份。
           </p>
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             <Button
@@ -265,75 +347,28 @@ function EntryCard({ icon, label, onClick }: { icon: string; label: string; onCl
   )
 }
 
-/* =============== AI 设置(用户自己的 OpenAI 兼容接口) =============== */
+/* =============== AI 设置(服务端代理) =============== */
 
 function AISettingsSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [cfg, setCfg] = useState<AIConfig>(DEFAULT_AI_CONFIG)
-  const [loaded, setLoaded] = useState(false)
+  const { user } = useAuth()
+  const [quota, setQuota] = useState<AIQuotaResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open && !loaded) {
-      getAIConfig().then((c) => {
-        setCfg(c)
-        setLoaded(true)
-      })
-    }
-  }, [open, loaded])
+    if (!open || !user) return
+    setQuota(null)
+    setError(null)
+    api.aiQuota().then(setQuota).catch((e) => setError(e instanceof Error ? e.message : '无法读取 AI 状态'))
+  }, [open, user])
 
   return (
     <Sheet open={open} onClose={onClose} title="AI 分析设置">
       <div className="space-y-4 pb-6">
         <p className="text-xs leading-relaxed text-ink-3">
-          可选功能。填入你自己的 OpenAI 兼容接口(OpenAI / DeepSeek / Claude 中转等)后,才能使用「AI 深度分析」。
-          基础统计(1RM、PR、容量)永远由本地计算,AI 只在你主动点击时被调用一次,结果缓存,不会自动消耗 Token。
+          基础统计(1RM、PR、容量)始终在本机计算。AI 分析仅在你主动点击时发送结构化摘要，服务端按账号限额并安全保管 Provider Key。
         </p>
-        <label className="flex items-center justify-between rounded-2xl bg-surface-2 px-4 py-3">
-          <span className="text-[15px]">启用 AI 深度分析</span>
-          <input
-            type="checkbox"
-            checked={cfg.enabled}
-            onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })}
-            className="size-5 accent-[var(--accent)]"
-          />
-        </label>
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-ink-3">接口地址(Base URL)</div>
-          <input
-            value={cfg.baseURL}
-            onChange={(e) => setCfg({ ...cfg, baseURL: e.target.value })}
-            placeholder="https://api.openai.com/v1"
-            className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-[14px] outline-none ring-1 ring-line focus:ring-accent/50"
-          />
-        </div>
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-ink-3">API Key(仅保存在本机)</div>
-          <input
-            value={cfg.apiKey}
-            onChange={(e) => setCfg({ ...cfg, apiKey: e.target.value })}
-            type="password"
-            placeholder="sk-…"
-            className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-[14px] outline-none ring-1 ring-line focus:ring-accent/50"
-          />
-        </div>
-        <div>
-          <div className="mb-1.5 text-xs font-medium text-ink-3">模型</div>
-          <input
-            value={cfg.model}
-            onChange={(e) => setCfg({ ...cfg, model: e.target.value })}
-            placeholder="gpt-4o-mini"
-            className="w-full rounded-2xl bg-surface-2 px-4 py-3 text-[14px] outline-none ring-1 ring-line focus:ring-accent/50"
-          />
-        </div>
-        <Button
-          block
-          onClick={async () => {
-            await saveAIConfig(cfg)
-            toast('AI 设置已保存')
-            onClose()
-          }}
-        >
-          保存
-        </Button>
+        {!user ? <Card className="text-sm text-ink-3">请先登录，才能使用 AI 深度分析。</Card> : error ? <Card className="text-sm text-warn">{error}</Card> : quota ? <Card className="space-y-1 text-sm"><div>服务状态：{quota.enabled ? '可用' : '暂未配置'}</div><div className="text-ink-3">今日剩余 {quota.daily.remaining} / {quota.daily.limit} · 本月剩余 {quota.monthly.remaining} / {quota.monthly.limit}</div></Card> : <Card className="text-sm text-ink-3">正在读取服务状态…</Card>}
+        <Button variant="secondary" block onClick={onClose}>关闭</Button>
       </div>
     </Sheet>
   )
