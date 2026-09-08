@@ -93,8 +93,12 @@ export function dataRoutes(store: Store, _cfg: AppConfig): Router {
     body.sessionId = req.params.id
     // 未指定顺序时追加到末尾(与前端行为一致)
     if (typeof body.order !== 'number') {
-      const row = store.get('SELECT COUNT(*) AS n FROM workout_exercises WHERE session_id = ? AND user_id = ?', req.params.id, userId)
-      body.order = Number(row?.n ?? 0)
+      const row = store.get(
+        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM workout_exercises WHERE session_id = ? AND user_id = ?',
+        req.params.id,
+        userId,
+      )
+      body.order = Number(row?.next_order ?? 0)
     }
     const model = createOwned(store, 'workoutExercises', body, userId)
     res.status(201).json({ workoutExercise: model })
@@ -121,8 +125,12 @@ export function dataRoutes(store: Store, _cfg: AppConfig): Router {
     body.date = session.date
     // 未指定组号时追加到该动作末尾(与前端行为一致)
     if (typeof body.setNumber !== 'number') {
-      const row = store.get('SELECT COUNT(*) AS n FROM sets WHERE workout_exercise_id = ? AND user_id = ?', weId, userId)
-      body.setNumber = Number(row?.n ?? 0) + 1
+      const row = store.get(
+        'SELECT COALESCE(MAX(set_number), 0) + 1 AS next_number FROM sets WHERE workout_exercise_id = ? AND user_id = ?',
+        weId,
+        userId,
+      )
+      body.setNumber = Number(row?.next_number ?? 1)
     }
     const model = createOwned(store, 'sets', body, userId)
     res.status(201).json({ set: model })
@@ -135,7 +143,23 @@ export function dataRoutes(store: Store, _cfg: AppConfig): Router {
 
   r.delete('/sets/:id', (req, res) => {
     const { userId } = authOf(req)
-    deleteOwned(store, 'sets', req.params.id, userId)
+    store.transaction(() => {
+      const current = ownRow(store, 'sets', req.params.id, userId)
+      const workoutExerciseId = String(current.workout_exercise_id)
+      deleteOwned(store, 'sets', req.params.id, userId)
+      const siblings = store.all(
+        'SELECT id, set_number FROM sets WHERE workout_exercise_id = ? AND user_id = ? ORDER BY set_number ASC',
+        workoutExerciseId,
+        userId,
+      )
+      for (let i = 0; i < siblings.length; i++) {
+        const expected = i + 1
+        const currentNumber = Number(siblings[i].set_number)
+        if (currentNumber !== expected) {
+          store.run('UPDATE sets SET set_number = ? WHERE id = ? AND user_id = ?', expected, siblings[i].id, userId)
+        }
+      }
+    })
     res.json({ ok: true })
   })
 

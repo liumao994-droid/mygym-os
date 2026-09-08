@@ -106,3 +106,9 @@
   background: #2e4aae;
   color: #fff;
 }
+
+.strength-btn {
+  margin: 32rpx 24rpx 0;
+  background: #63b3a4;
+  color: #fff;
+}

@@ -1,0 +1,4 @@
+{
+  "_说明": "本文件只是 AppID 配置模板,不会被微信开发者工具读取。请复制为 project.private.config.json(已 gitignore),再把 appid 改成你从微信公众平台获得的真实值。AppSecret 永远不要填到这个文件或任何小程序源码中,只填后端环境变量 WECHAT_APP_SECRET。",
+  "appid": "wxYOUR_REAL_APP_ID_HERE"
+}

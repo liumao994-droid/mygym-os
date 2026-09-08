@@ -27,7 +27,10 @@ npm install
 DEV_AUTH_ENABLED=true npm run dev
 ```
 
-2. 用微信开发者工具导入本目录(`miniprogram/`),AppID 可先用测试号或 `touristappid`。
+2. 用微信开发者工具导入本目录(`miniprogram/`),AppID 可先用 `touristappid` 游客模式。
+   拿到真实 AppID 后,不要直接改已提交的 `project.config.json`;复制
+   `appid.example.json` 为 `project.private.config.json`(该文件已被 Git 忽略),
+   把其中的 `appid` 换成真实值即可,后续升级项目不会覆盖你的本地配置。
 3. 在开发者工具「详情 → 本地设置」勾选「不校验合法域名…」,才能访问本机
    `http://127.0.0.1:8787`。
 4. 登录页可先使用「开发联调登录」验证 Web/小程序共用后端;正式微信登录需要下面的平台配置。
@@ -81,7 +84,9 @@ ALLOWED_ORIGINS=https://your-web-domain  # 浏览器来源白名单
 
 - `pages/login/login`:微信登录 + 本地联调登录 + API 地址设置
 - `pages/home/home`:当前用户、四类运动最近记录、AI 额度入口
+- `pages/strength/strength`:力量训练首页(开始/继续/复制上次/记录休息)
+- `pages/workout/workout`:力量训练编辑器(添加动作、批量加组、编辑/删除组、完成/放弃)
 - `pages/sandbox/sandbox`:登录后运行完整 CRUD 自检(创建/读回/修改/删除)
 
-后续页面迁移(力量训练、羽毛球、游泳、网球、历史、报告)都复用
+后续页面迁移(羽毛球、游泳、网球、历史、报告)都复用
 `services/data.js` 与 `services/ai.js`,不重复编写请求逻辑。

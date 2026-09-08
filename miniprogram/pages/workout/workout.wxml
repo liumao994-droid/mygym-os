@@ -1,0 +1,192 @@
+<view class="page">
+  <view class="topbar">
+    <button class="back-btn" bindtap="goBack">‹</button>
+    <view class="top-info" wx:if="{{session}}">
+      <view class="top-title">{{session.title}}</view>
+      <view class="muted top-sub">
+        {{session.date}}<text wx:if="{{!readOnly}}"> · {{elapsed}}</text> · {{items.length}} 动作 {{totalSets}} 组<text wx:if="{{totalVolume > 0}}"> · {{totalVolume}}kg</text>
+      </view>
+    </view>
+    <view class="top-actions">
+      <button wx:if="{{!readOnly}}" class="finish-top-btn" bindtap="onOpenFinish">完成</button>
+      <button wx:if="{{!readOnly}}" class="icon-btn" bindtap="onDiscardWorkout">放弃</button>
+    </view>
+  </view>
+
+  <view class="loading muted" wx:if="{{loading}}">加载中…</view>
+
+  <view class="error-box" wx:if="{{error}}">
+    <view>{{error}}</view>
+    <button class="back-link" bindtap="goBack">返回</button>
+  </view>
+
+  <block wx:if="{{session && !loading}}">
+    <view class="empty-tip muted" wx:if="{{!items.length}}">
+      还没有动作,点击下方「添加动作」开始。
+    </view>
+
+    <view class="exercise-card" wx:for="{{items}}" wx:for-item="exercise" wx:for-index="eIndex" wx:key="id">
+      <view class="exercise-head">
+        <view class="exercise-title">
+          <text class="part-badge">{{exercise.bodyPartLabel}}</text>
+          <text class="exercise-name">{{exercise.name}}</text>
+        </view>
+        <button
+          wx:if="{{!readOnly}}"
+          class="remove-ex-btn"
+          data-id="{{exercise.id}}"
+          data-name="{{exercise.name}}"
+          bindtap="onRemoveExercise"
+        >移除</button>
+      </view>
+
+      <view class="sets-area">
+        <view class="muted" wx:if="{{!exercise.sets.length}}">还没有组数据,在下方输入后添加。</view>
+        <block wx:for="{{exercise.sets}}" wx:for-item="set" wx:for-index="sIndex" wx:key="id">
+          <view class="set-row" wx:if="{{editingSet.setId == set.id && editingSet.weId == exercise.id}}">
+            <text class="set-no">{{set.setNumber}}</text>
+            <input
+              wx:if="{{exercise.weightType !== 'bodyweight'}}"
+              class="mini-input"
+              type="digit"
+              value="{{editWeight}}"
+              data-field="editWeight"
+              bindinput="onEditInput"
+            />
+            <text wx:else class="bw-text">自重</text>
+            <text class="field-label" wx:if="{{exercise.weightType !== 'bodyweight'}}">{{exercise.weightLabel}}</text>
+            <input class="mini-input" type="number" value="{{editReps}}" data-field="editReps" bindinput="onEditInput" />
+            <text class="field-label">次</text>
+            <button
+              class="mini-btn"
+              data-set-id="{{set.id}}"
+              data-index="{{eIndex}}"
+              bindtap="onSaveEditSet"
+            >保存</button>
+            <button class="mini-btn ghost" bindtap="onCancelEditSet">取消</button>
+          </view>
+
+          <view class="set-row" wx:else>
+            <text class="set-no">{{set.setNumber}}</text>
+            <text class="set-weight">{{set.displayWeight}}</text>
+            <text class="set-reps">{{set.reps}} 次</text>
+            <text class="muted" wx:if="{{set.rpe}}">RPE {{set.rpe}}</text>
+            <block wx:if="{{!readOnly}}">
+              <button
+                class="mini-btn ghost"
+                data-we-id="{{exercise.id}}"
+                data-set-id="{{set.id}}"
+                data-weight="{{set.weight}}"
+                data-reps="{{set.reps}}"
+                data-weight-type="{{exercise.weightType}}"
+                bindtap="onStartEditSet"
+              >编辑</button>
+              <button class="mini-btn danger-ghost" data-set-id="{{set.id}}" bindtap="onDeleteSet">删除</button>
+            </block>
+          </view>
+        </block>
+      </view>
+
+      <view class="add-inputs" wx:if="{{!readOnly}}">
+        <view class="input-line">
+          <block wx:if="{{exercise.weightType !== 'bodyweight'}}">
+            <input
+              class="set-input"
+              type="digit"
+              value="{{exercise.draftWeight}}"
+              data-index="{{eIndex}}"
+              data-field="weight"
+              bindinput="onDraftInput"
+            />
+            <text class="unit-label">{{exercise.weightLabel}}</text>
+          </block>
+          <text wx:else class="bw-label">自重</text>
+          <input
+            class="set-input"
+            type="number"
+            value="{{exercise.draftReps}}"
+            data-index="{{eIndex}}"
+            data-field="reps"
+            bindinput="onDraftInput"
+          />
+          <text class="unit-label">次数</text>
+          <input
+            class="set-input narrow"
+            type="number"
+            value="{{exercise.draftCount}}"
+            data-index="{{eIndex}}"
+            data-field="count"
+            bindinput="onDraftInput"
+          />
+          <text class="unit-label">组</text>
+          <button class="add-set-btn" data-index="{{eIndex}}" bindtap="onAddSetGroup">添加</button>
+        </view>
+      </view>
+    </view>
+
+    <button wx:if="{{!readOnly}}" class="add-exercise-btn" loading="{{busy}}" bindtap="onOpenPicker">＋ 添加动作</button>
+
+      <view class="footer-note muted" wx:if="{{readOnly && (session.feel || session.notes || session.durationSec)}}">
+        <text wx:if="{{session.durationSec}}">时长 {{session.durationSec}} 秒</text>
+        <text wx:if="{{session.feel}}"> · 感受 {{feelLabel}}</text>
+        <text wx:if="{{session.notes}}"> · {{session.notes}}</text>
+      </view>
+  </block>
+
+  <!-- 动作选择 -->
+  <view class="overlay" wx:if="{{pickerOpen}}" catchtouchmove="noop">
+    <view class="sheet">
+      <view class="sheet-head">
+        <view class="sheet-title">添加动作</view>
+        <button class="close-btn" bindtap="onClosePicker">关闭</button>
+      </view>
+      <input class="search-input" placeholder="搜索动作名称" value="{{pickerSearch}}" bindinput="onPickerSearch" />
+      <scroll-view scroll-x class="part-scroll">
+        <view class="part-scroll-row">
+          <text
+            wx:for="{{pickerBodyParts}}"
+            wx:key="id"
+            class="picker-part {{pickerBodyPart == item.id ? 'on' : ''}}"
+            data-value="{{item.id}}"
+            bindtap="onPickerBodyPart"
+          >{{item.label}}</text>
+        </view>
+      </scroll-view>
+      <scroll-view scroll-y class="exercise-scroll">
+        <view
+          class="picker-row"
+          wx:for="{{pickableExercises}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onPickExercise"
+        >
+          <text class="picker-name">{{item.name}}</text>
+          <text class="muted">{{item.bodyPartLabel}}</text>
+        </view>
+        <view class="muted empty" wx:if="{{!pickableExercises.length}}">没有匹配的动作</view>
+      </scroll-view>
+    </view>
+  </view>
+
+  <!-- 完成训练 -->
+  <view class="overlay" wx:if="{{finishOpen}}" catchtouchmove="noop">
+    <view class="sheet">
+      <view class="sheet-head">
+        <view class="sheet-title">完成训练</view>
+        <button class="close-btn" bindtap="onCloseFinish">取消</button>
+      </view>
+      <view class="finish-label">这次练得怎么样?</view>
+      <view class="feel-row">
+        <view
+          wx:for="{{feelOptions}}"
+          wx:key="value"
+          class="feel-chip {{feel === item.value ? 'on' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="onFeelTap"
+        >{{item.label}}</view>
+      </view>
+      <textarea class="notes-input" placeholder="训练备注(可选)" value="{{notes}}" bindinput="onNotesInput"></textarea>
+      <button class="finish-btn" loading="{{busy}}" bindtap="onConfirmFinish">完成训练</button>
+    </view>
+  </view>
+</view>

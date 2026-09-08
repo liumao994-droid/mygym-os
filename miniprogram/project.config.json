@@ -1,5 +1,5 @@
 {
-  "description": "MyGym OS 微信小程序。正式发布前请把 appid 替换为你自己的小程序 AppID。",
+  "description": "MyGym OS 微信小程序。此处保留 touristappid 游客模式;取得真实 AppID 后请写入本地 project.private.config.json(见 appid.example.json),不要在本文件伪造。",
   "packOptions": {
     "ignore": [
       { "type": "folder", "value": "test" },

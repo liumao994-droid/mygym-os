@@ -1,0 +1,110 @@
+.page {
+  padding-bottom: 60rpx;
+}
+
+.active-card {
+  margin: 24rpx;
+  padding: 28rpx;
+  border-radius: 24rpx;
+  background: #2e4aae;
+  color: #fff;
+}
+
+.active-label {
+  font-size: 24rpx;
+  opacity: 0.85;
+}
+
+.active-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  margin: 8rpx 0;
+}
+
+.card-title {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.part-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  margin: 24rpx 0;
+}
+
+.part {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18rpx;
+  background: #f1f5fb;
+  border: 1rpx solid #e2e8f0;
+  font-weight: 600;
+}
+
+.part-on {
+  background: #c7d2fe;
+  color: #2e4aae;
+  border-color: #2e4aae;
+}
+
+.primary-btn {
+  background: #2e4aae;
+  color: #fff;
+  width: 100%;
+}
+
+.quick-row {
+  display: flex;
+  gap: 16rpx;
+  padding: 0 24rpx;
+}
+
+.quick-btn {
+  flex: 1;
+  background: #fff;
+  color: #2e4aae;
+  border: 1rpx solid #c7d2fe;
+  font-size: 26rpx;
+}
+
+.section-title {
+  margin: 32rpx 28rpx 4rpx;
+  color: #374151;
+  font-weight: 700;
+}
+
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid #f1f5f9;
+}
+
+.recent-row:last-child {
+  border-bottom: none;
+}
+
+.recent-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.recent-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arrow {
+  color: #9ca3af;
+  font-size: 36rpx;
+}
+
+.empty {
+  text-align: center;
+}

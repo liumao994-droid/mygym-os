@@ -85,6 +85,10 @@ Page({
     wx.navigateTo({ url: '/pages/sandbox/sandbox' })
   },
 
+  onOpenStrength() {
+    wx.navigateTo({ url: '/pages/strength/strength' })
+  },
+
   async onLogout() {
     await auth.logout()
     wx.reLaunch({ url: '/pages/login/login' })

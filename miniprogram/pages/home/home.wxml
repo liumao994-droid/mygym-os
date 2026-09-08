@@ -32,5 +32,6 @@
     <view wx:else class="muted">暂无记录</view>
   </view>
 
+  <button class="strength-btn" bindtap="onOpenStrength">进入力量训练</button>
   <button class="primary-btn" bindtap="onOpenSandbox">运行 CRUD 链路测试</button>
 </view>

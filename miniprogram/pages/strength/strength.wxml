@@ -1,0 +1,45 @@
+<view class="page">
+  <view class="active-card" wx:if="{{active}}" bindtap="onContinue">
+    <view class="active-label">⏱ 训练进行中</view>
+    <view class="active-title">{{active.title}}</view>
+    <view class="muted">点击继续编辑 · {{active.date}}</view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">今天练什么?</view>
+    <view class="muted">选择一个或多个部位</view>
+    <view class="part-grid">
+      <view
+        wx:for="{{bodyParts}}"
+        wx:key="id"
+        class="part {{item.selected ? 'part-on' : ''}}"
+        data-id="{{item.id}}"
+        bindtap="onTogglePart"
+      >{{item.name}}</view>
+    </view>
+    <button class="primary-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onStart">开始训练</button>
+  </view>
+
+  <view class="quick-row">
+    <button class="quick-btn" loading="{{busy}}" bindtap="onCopyLast">复制上次训练</button>
+    <button class="quick-btn" bindtap="onMarkRest">记录休息</button>
+  </view>
+
+  <view class="section-title">最近训练</view>
+  <view class="card list-card" wx:if="{{recent.length}}">
+    <view
+      class="recent-row"
+      wx:for="{{recent}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="onOpenWorkout"
+    >
+      <view class="recent-main">
+        <view class="recent-title">{{item.title}}</view>
+        <view class="muted">{{item.date}} · {{item.durationLabel}}</view>
+      </view>
+      <view class="arrow">›</view>
+    </view>
+  </view>
+  <view class="card muted empty" wx:else>还没有力量训练记录</view>
+</view>

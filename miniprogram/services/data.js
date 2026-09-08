@@ -47,9 +47,24 @@ async function addWorkoutExercise(sessionId, payload) {
   return body.workoutExercise
 }
 
+async function deleteWorkoutExercise(id) {
+  await write('DELETE', `/workout-exercises/${encodeURIComponent(id)}`, undefined)
+  return true
+}
+
 async function addSet(sessionId, payload) {
   const body = await write('POST', `/sessions/${encodeURIComponent(sessionId)}/sets`, payload)
   return body.set
+}
+
+async function patchSet(id, patch) {
+  const body = await write('PATCH', `/sets/${encodeURIComponent(id)}`, patch)
+  return body.set
+}
+
+async function deleteSet(id) {
+  await write('DELETE', `/sets/${encodeURIComponent(id)}`, undefined)
+  return true
 }
 
 /* ---------------- 动作库 / 模板 / 日状态 ---------------- */
@@ -67,6 +82,11 @@ async function listTemplates() {
 async function listDailyStatuses(params) {
   const body = await get('/daily-statuses', params)
   return body.dailyStatuses
+}
+
+async function putDailyStatus(date, payload) {
+  const body = await write('PUT', `/daily-statuses/${encodeURIComponent(date)}`, payload)
+  return body.dailyStatus
 }
 
 /* ---------------- 羽毛球 / 游泳 / 网球 ---------------- */
@@ -120,10 +140,14 @@ module.exports = {
   patchSession,
   deleteSession,
   addWorkoutExercise,
+  deleteWorkoutExercise,
   addSet,
+  patchSet,
+  deleteSet,
   listExercises,
   listTemplates,
   listDailyStatuses,
+  putDailyStatus,
   listActivities,
   getActivity,
   createActivity,

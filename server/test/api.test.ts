@@ -395,6 +395,39 @@ test('A 可以修改自己的数据', async () => {
   assert.equal(patchSession.json.session.notes, '状态不错')
 })
 
+test('组号按 MAX+1 追加;删除组后服务端自动重排,不产生空洞', async () => {
+  const mkSet = (workoutExerciseId: string, weight: number) =>
+    api(url, `/sessions/${sessionA}/sets`, {
+      method: 'POST',
+      token: A.token,
+      body: { workoutExerciseId, weight, reps: 8, weightType: 'weight' },
+    })
+  const s2 = await mkSet(weA, 50)
+  assert.equal(s2.status, 201)
+  assert.equal(s2.json.set.setNumber, 2)
+  const s3 = await mkSet(weA, 40)
+  assert.equal(s3.status, 201)
+  assert.equal(s3.json.set.setNumber, 3)
+
+  const before = await api(url, `/sessions/${sessionA}`, { token: A.token })
+  assert.deepEqual(
+    before.json.workoutExercises[0].sets.map((s: { setNumber: number }) => s.setNumber),
+    [1, 2, 3],
+  )
+
+  const del = await api(url, `/sets/${s2.json.set.id}`, { method: 'DELETE', token: A.token })
+  assert.equal(del.status, 200)
+  const after = await api(url, `/sessions/${sessionA}`, { token: A.token })
+  assert.deepEqual(
+    after.json.workoutExercises[0].sets.map((s: { setNumber: number }) => s.setNumber),
+    [1, 2],
+  )
+
+  const next = await mkSet(weA, 45)
+  assert.equal(next.status, 201)
+  assert.equal(next.json.set.setNumber, 3)
+})
+
 /* ---------------- 3. 羽毛球/游泳/网球:隔离 ---------------- */
 
 test('运动记录:双用户隔离 + 越权 404', async () => {
