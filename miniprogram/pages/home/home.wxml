@@ -25,10 +25,12 @@
       <text class="sport-emoji">{{item.emoji}}</text>
       <text class="sport-name">{{item.label}}</text>
     </view>
-    <view wx:if="{{item.recent.length}}" class="recent-item" wx:for="{{item.recent}}" wx:for-item="rec" wx:key="id">
-      <text>{{rec.date}}</text>
-      <text class="muted rec-summary">{{rec.summary}}</text>
-    </view>
+    <block wx:if="{{item.recent.length}}">
+      <view class="recent-item" wx:for="{{item.recent}}" wx:for-item="rec" wx:key="id">
+        <text>{{rec.date}}</text>
+        <text class="muted rec-summary">{{rec.summary}}</text>
+      </view>
+    </block>
     <view wx:else class="muted">暂无记录</view>
   </view>
 
