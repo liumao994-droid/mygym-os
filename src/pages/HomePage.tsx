@@ -25,6 +25,7 @@ export default function HomePage() {
 
   const todayState = useLiveQuery(() => getTodayState(today), [today], undefined)
   const stats = useLiveQuery(() => getHomeStats(), [], undefined)
+  const activityCount = useLiveQuery(() => db.activitySessions.count(), [], undefined)
   const exerciseNames = useLiveQuery(() => db.exercises.toArray(), [], [])
   const exNameMap = useMemo(() => new Map((exerciseNames ?? []).map((e) => [e.id, e.name])), [exerciseNames])
 
@@ -60,7 +61,7 @@ export default function HomePage() {
   )
 
   // 空状态:完全没有训练记录
-  const isEmpty = stats !== undefined && stats.totalSessions === 0 && !todayState?.session
+  const isEmpty = stats !== undefined && activityCount !== undefined && stats.totalSessions === 0 && activityCount === 0 && !todayState?.session
 
   const suffix = useMemo(() => {
     const h = new Date().getHours()
@@ -353,7 +354,7 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
         </div>
         {state.activities && state.activities.length > 0 && (
           <button
-            onClick={() => navigate(state.activities!.length === 1 ? `/badminton/${state.activities![0].id}` : '/badminton')}
+            onClick={() => navigate(state.activities!.length === 1 ? activityDetailPath(state.activities![0]) : '/history')}
             className="mt-2 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
             style={{ backgroundColor: `${SPORT_META.badminton.color}1f`, color: SPORT_META.badminton.color }}
           >
@@ -371,24 +372,27 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
     const a = state.activities[state.activities.length - 1]
     const meta = SPORT_META[a.sport as keyof typeof SPORT_META]
     return (
-      <Card className="!p-5" onClick={() => navigate(a.sport === 'badminton' ? `/badminton/${a.id}` : a.sport === 'tennis' ? `/tennis/${a.id}/edit` : `/swimming/${a.id}/edit`)}>
-        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: meta.color }}>
-          <span className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ backgroundColor: `${meta.color}22` }}>
-            {meta.emoji}
-          </span>
-          今日已运动
-        </div>
-        <div className="mt-2 text-2xl font-bold">{meta.name}</div>
-        <div className="num mt-1 text-sm text-ink-3">
-          {(a.sport === 'badminton' || a.sport === 'tennis') && a.playType ? (a.playType === 'singles' ? '单打' : '双打') : ''}
-          {a.sport === 'badminton' && a.score?.gamesTotal ? ` · ${a.score.gamesTotal} 局` : ''}
-          {a.sport === 'tennis' && (a.score?.gamesTotal ?? 0) > 0 ? ` · ${a.score?.gamesTotal} 盘` : ''}
-          {a.sport === 'tennis' && a.scoreText ? ` · ${a.scoreText}` : ''}
-          {a.sport === 'swimming' && a.distanceM ? ` · ${a.distanceM >= 1000 ? (a.distanceM / 1000).toFixed(2) + ' km' : a.distanceM + ' m'}` : ''}
-          {a.durationMin ? ` · ${fmtHoursMin(a.durationMin)}` : ''}
-          {state.activities.length > 1 ? ` · 共 ${state.activities.length} 条记录` : ''}
-        </div>
-        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(a.sport === 'badminton' ? '/badminton' : a.sport === 'tennis' ? '/tennis' : '/swimming')}>
+      <Card className="!p-5">
+        <button type="button" onClick={() => navigate(activityDetailPath(a))} className="w-full text-left active:opacity-80">
+          <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: meta.color }}>
+            <span className="flex size-5 items-center justify-center rounded-full text-[10px]" style={{ backgroundColor: `${meta.color}22` }}>
+              {meta.emoji}
+            </span>
+            今日已运动
+          </div>
+          <div className="mt-2 text-2xl font-bold">{meta.name}</div>
+          <div className="num mt-1 text-sm text-ink-3">
+            {(a.sport === 'badminton' || a.sport === 'tennis') && a.playType ? (a.playType === 'singles' ? '单打' : '双打') : ''}
+            {a.sport === 'badminton' && a.score?.gamesTotal ? ` · ${a.score.gamesTotal} 局` : ''}
+            {a.sport === 'tennis' && (a.score?.gamesTotal ?? 0) > 0 ? ` · ${a.score?.gamesTotal} 盘` : ''}
+            {a.sport === 'tennis' && a.scoreText ? ` · ${a.scoreText}` : ''}
+            {a.sport === 'swimming' && a.distanceM ? ` · ${a.distanceM >= 1000 ? (a.distanceM / 1000).toFixed(2) + ' km' : a.distanceM + ' m'}` : ''}
+            {a.sport === 'volleyball' && a.score?.gamesTotal ? ` · 局分 ${a.score.gamesWon ?? 0}:${a.score.gamesLost ?? 0}` : ''}
+            {a.durationMin ? ` · ${fmtHoursMin(a.durationMin)}` : ''}
+            {state.activities.length > 1 ? ` · 共 ${state.activities.length} 条记录` : ''}
+          </div>
+        </button>
+        <Button variant="secondary" size="sm" className="mt-3" onClick={() => navigate(SPORT_META[a.sport].routeBase)}>
           查看统计
         </Button>
       </Card>
@@ -428,6 +432,14 @@ function TodayCard({ state }: { state: Awaited<ReturnType<typeof getTodayState>>
       </div>
     </Card>
   )
+}
+
+function activityDetailPath(activity: { id: string; sport: keyof typeof SPORT_META }): string {
+  return activity.sport === 'badminton'
+    ? `/badminton/${activity.id}`
+    : activity.sport === 'volleyball'
+      ? `/volleyball/${activity.id}`
+      : `/${activity.sport}/${activity.id}/edit`
 }
 
 /* =============== 统计磁贴 =============== */

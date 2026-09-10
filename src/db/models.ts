@@ -76,7 +76,7 @@ export const BODY_PART_META: Record<BodyPartId, BodyPartMeta> = {
  * 现有 strength = 力量训练(sessions/sets 体系);
  * 其它运动通过 activitySessions 通用表记录,新增运动只需在此注册并扩展对应统计。
  */
-export const SPORT_TYPES = ['strength', 'badminton', 'swimming', 'tennis'] as const
+export const SPORT_TYPES = ['strength', 'badminton', 'swimming', 'tennis', 'volleyball'] as const
 export type SportType = (typeof SPORT_TYPES)[number]
 
 export interface SportMeta {
@@ -117,6 +117,10 @@ export const SPORT_META: Record<SportType, SportMeta> = {
     /** 隐藏彩蛋:仅网球卡片展示的小签名(不参与布局与交互) */
     easterEgg: 'Evan',
   },
+  volleyball: {
+    id: 'volleyball', name: '排球', emoji: '🏐', color: '#C58B6A',
+    desc: '时长 · 局分胜负 · 发扣拦防', routeBase: '/volleyball', label: '🏐 排球',
+  },
 }
 
 /** 泳姿 */
@@ -135,6 +139,41 @@ export const STROKE_LABEL: Record<StrokeType, string> = {
 export type DistanceUnit = 'm' | 'mi'
 
 export type NonStrengthSport = Exclude<SportType, 'strength'>
+
+export const VOLLEYBALL_SESSION_TYPES = ['training', 'casual', 'scrimmage', 'official'] as const
+export type VolleyballSessionType = (typeof VOLLEYBALL_SESSION_TYPES)[number]
+export const VOLLEYBALL_SESSION_LABEL: Record<VolleyballSessionType, string> = {
+  training: '日常训练',
+  casual: '自由打球',
+  scrimmage: '对抗赛',
+  official: '正式比赛',
+}
+
+export const VOLLEYBALL_POSITIONS = ['oh', 'mb', 'opp', 'setter', 'libero', 'none', 'other'] as const
+export type VolleyballPosition = (typeof VOLLEYBALL_POSITIONS)[number]
+export const VOLLEYBALL_POSITION_LABEL: Record<VolleyballPosition, string> = {
+  oh: '主攻 OH',
+  mb: '副攻 MB',
+  opp: '接应 OPP',
+  setter: '二传 S',
+  libero: '自由人 L',
+  none: '无固定位置',
+  other: '其他',
+}
+
+export interface VolleyballSetScore {
+  ourScore?: number
+  opponentScore?: number
+}
+
+export interface VolleyballStats {
+  serve?: { attempts?: number; aces?: number; errors?: number }
+  attack?: { attempts?: number; points?: number; errors?: number; blocked?: number }
+  block?: { points?: number; effective?: number }
+  reception?: { attempts?: number; perfect?: number; errors?: number }
+  dig?: { attempts?: number; successful?: number }
+  set?: { attempts?: number; successful?: number }
+}
 
 /** 对抗类运动的计分容器(局数/胜负/得分),字段全部可选 */
 export interface ActivityScore {
@@ -200,6 +239,11 @@ export interface ActivitySession {
     avgHr?: number
     maxHr?: number
   }
+  /* ---- 排球(全部可选) ---- */
+  volleyballSessionType?: VolleyballSessionType
+  volleyballPosition?: VolleyballPosition
+  volleyballSets?: VolleyballSetScore[]
+  volleyballStats?: VolleyballStats
   /* ---- 游泳字段(全部可选) ---- */
   /** 距离,底层统一为米 */
   distanceM?: number

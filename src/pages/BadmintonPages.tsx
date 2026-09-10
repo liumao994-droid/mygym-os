@@ -6,7 +6,7 @@ import { ChevronLeft, Plus, Trash2, Pencil } from 'lucide-react'
 import { db } from '@/db/db'
 import type { ActivitySession } from '@/db/models'
 import { SPORT_META } from '@/db/models'
-import { calcPaceSecPer100m, createActivity, deleteActivity, formatDistance, formatPace, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
+import { calcPaceSecPer100m, createActivity, deleteActivity, formatDistance, formatPace, getActivity, getSportMonthlyTrend, updateActivity, type ActivityInput } from '@/services/activity'
 import { STROKE_LABEL, type StrokeType } from '@/db/models'
 import { fmtDateCN, fmtDateFullCN, parseLocalDate, todayStr } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
@@ -354,7 +354,6 @@ export function BadmintonPage() {
     undefined,
   )
   const trend = useLiveQuery(async () => {
-    const { getSportMonthlyTrend } = await import('@/services/activity')
     return getSportMonthlyTrend('badminton', 6)
   }, [], undefined)
 
@@ -708,4 +707,3 @@ function fmtTime(ts: number): string {
   const d = new Date(ts)
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
-

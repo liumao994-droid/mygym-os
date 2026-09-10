@@ -1,4 +1,5 @@
 import type { BackupFile, User } from '@/db/models'
+import { getAppState, setAppState } from '@/db/db'
 
 /**
  * MyGym API 客户端 —— Web 与未来微信小程序共用的后端契约。
@@ -38,7 +39,6 @@ let apiBaseCache: string | null = null
 /** 解析规则:appState 手动覆盖 > 构建时环境变量 > 开发默认(localhost) > 同源 */
 export async function getApiBase(): Promise<string> {
   if (apiBaseCache !== null) return apiBaseCache
-  const { getAppState } = await import('@/db/db')
   const override = await getAppState<string>(API_BASE_STATE_KEY, '')
   apiBaseCache = normalizeBase(
     override.trim() || (import.meta.env?.VITE_API_BASE_URL as string | undefined) || (import.meta.env?.DEV ? DEV_DEFAULT_API_BASE : ''),
@@ -48,7 +48,6 @@ export async function getApiBase(): Promise<string> {
 
 /** 手动覆盖 API 地址(存 appState;传空串清除覆盖) */
 export async function setApiBase(url: string): Promise<void> {
-  const { setAppState } = await import('@/db/db')
   await setAppState(API_BASE_STATE_KEY, url.trim())
   apiBaseCache = null
 }

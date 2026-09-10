@@ -89,6 +89,44 @@ export default function YearlyReportPage() {
               </Card>
             )}
 
+            {report.volleyball && (
+              <>
+                <Card className={`${WM_PANEL} !p-5`}>
+                  <BrandWatermark size="sm" pos="br" opacity="opacity-[0.025]" />
+                  <SectionTitle title="🏐 排球年度表现" />
+                  <div className="grid grid-cols-3 gap-y-4 text-center">
+                    <Stat label="排球次数" value={`${report.volleyball.sessions}`} sub="次" />
+                    <Stat label="运动时长" value={fmtHoursMin(report.volleyball.totalMinutes)} />
+                    <Stat label="比赛" value={`${report.volleyball.matchCount}`} sub="场" />
+                    <Stat label="胜 / 负" value={report.volleyball.wins + report.volleyball.losses ? `${report.volleyball.wins}:${report.volleyball.losses}` : '—'} />
+                    <Stat label="总得分" value={`${report.volleyball.directPoints}`} />
+                    <Stat label="总 ACE" value={`${report.volleyball.aces}`} />
+                    <Stat label="总拦网" value={`${report.volleyball.blockPoints}`} />
+                    <Stat label="有效防守" value={`${report.volleyball.successfulDigs}`} />
+                  </div>
+                  {(report.volleyball.best.directPoints + report.volleyball.best.aces + report.volleyball.best.blockPoints + report.volleyball.best.successfulDigs > 0) && (
+                    <div className="mt-4 rounded-2xl bg-surface-2 p-3">
+                      <div className="mb-2 text-xs font-semibold">年度最佳表现</div>
+                      <div className="num flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
+                        {report.volleyball.best.directPoints > 0 && <span>单场得分 {report.volleyball.best.directPoints}</span>}
+                        {report.volleyball.best.aces > 0 && <span>单场 ACE {report.volleyball.best.aces}</span>}
+                        {report.volleyball.best.blockPoints > 0 && <span>单场拦网 {report.volleyball.best.blockPoints}</span>}
+                        {report.volleyball.best.successfulDigs > 0 && <span>单场有效防守 {report.volleyball.best.successfulDigs}</span>}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+                <Card>
+                  <SectionTitle title="排球月度次数趋势" />
+                  <BarsChart data={report.volleyballTrend.map((m) => ({ x: `${parseInt(m.month.slice(5), 10)}月`, y: m.sessions }))} height={145} />
+                </Card>
+                <Card>
+                  <SectionTitle title="排球月度时长趋势" />
+                  <BarsChart data={report.volleyballTrend.map((m) => ({ x: `${parseInt(m.month.slice(5), 10)}月`, y: m.minutes }))} height={145} />
+                </Card>
+              </>
+            )}
+
             {/* 月度节奏 */}
             <Card>
               <SectionTitle title="全年节奏" />

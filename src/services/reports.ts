@@ -1,7 +1,7 @@
 import { db } from '@/db/db'
 import { addDays, fmtMonthCN, fmtNum, parseLocalDate, toLocalDate } from '@/lib/util'
 import { estimate1RM, setVolume } from './calc'
-import { getActivityOverviewForMonths } from './activity'
+import { getActivityOverviewForMonths, getVolleyballStats, getVolleyballYearTrend, type VolleyballAggregate } from './activity'
 import type { NonStrengthSport } from '@/db/models'
 import {
   countSummary,
@@ -50,6 +50,7 @@ export interface MonthlyReport {
   focusText: string[]
   /** 运动概览:本月非力量运动(羽毛球/游泳等,按类型细分) */
   activity: { count: number; minutes: number; bySport: Partial<Record<NonStrengthSport, { count: number; minutes: number }>> }
+  volleyball?: VolleyballAggregate
 }
 
 export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
@@ -138,10 +139,12 @@ export async function buildMonthlyReport(key: string): Promise<MonthlyReport> {
   // 运动概览(与力量统计完全分开计算)
   const activityOverview =
     (await getActivityOverviewForMonths([key])).get(key) ?? { count: 0, minutes: 0, bySport: {} }
+  const volleyball = activityOverview.bySport.volleyball?.count ? await getVolleyballStats(start, end) : undefined
 
   return {
     month: key,
     activity: activityOverview,
+    volleyball,
     summary: {
       trained: counts.sessions,
       rest: counts.rests,
@@ -187,6 +190,8 @@ export interface YearlyReport {
   topPartDistribution: PartDistribution[]
   /** 年度非力量运动概览(按类型细分) */
   activity: { count: number; minutes: number; bySport: Partial<Record<NonStrengthSport, { count: number; minutes: number }>> }
+  volleyball?: VolleyballAggregate
+  volleyballTrend: { month: string; sessions: number; minutes: number }[]
   dayOfYear: number
   hasData: boolean
 }
@@ -267,10 +272,14 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
     }
   }
   const activity = { count: activityCount, minutes: activityMinutes, bySport }
+  const volleyball = bySport.volleyball?.count ? await getVolleyballStats(start, end) : undefined
+  const volleyballTrend = volleyball ? await getVolleyballYearTrend(year) : []
 
   return {
     year,
     activity,
+    volleyball,
+    volleyballTrend,
     totalSessions: counts.sessions,
     totalSets: counts.totalSets,
     totalVolume: counts.volume,
@@ -281,7 +290,7 @@ export async function buildYearlyReport(year: number): Promise<YearlyReport> {
     topProgress: topProgress.slice(0, 6),
     topPartDistribution: parts,
     dayOfYear,
-    hasData: counts.sessions > 0,
+    hasData: counts.sessions > 0 || activity.count > 0,
   }
 }
 

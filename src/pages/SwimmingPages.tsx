@@ -13,6 +13,7 @@ import {
   formatDistance,
   formatPace,
   getActivity,
+  getSwimMonthlyDistanceTrend,
   updateActivity,
   type ActivityInput,
 } from '@/services/activity'
@@ -352,7 +353,6 @@ export function SwimmingPage() {
     undefined,
   )
   const trend = useLiveQuery(async () => {
-    const { getSwimMonthlyDistanceTrend } = await import('@/services/activity')
     return getSwimMonthlyDistanceTrend(6)
   }, [], undefined)
 

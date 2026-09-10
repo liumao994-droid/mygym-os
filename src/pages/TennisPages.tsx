@@ -6,7 +6,7 @@ import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
 import { db } from '@/db/db'
 import type { ActivitySession } from '@/db/models'
 import { SPORT_META } from '@/db/models'
-import { createActivity, deleteActivity, getActivity, updateActivity, type ActivityInput } from '@/services/activity'
+import { createActivity, deleteActivity, getActivity, getTennisMonthlyTrend, getTennisStats, updateActivity, type ActivityInput } from '@/services/activity'
 import { fmtDateCN, parseLocalDate, todayStr } from '@/lib/util'
 import { BarsChart } from '@/components/charts/charts'
 import { Button, Card, SectionTitle } from '@/components/ui/basic'
@@ -619,7 +619,6 @@ export function TennisPage() {
     undefined,
   )
   const statsData = useLiveQuery(async () => {
-    const { getTennisStats, getTennisMonthlyTrend } = await import('@/services/activity')
     return { stats: await getTennisStats(), trend: await getTennisMonthlyTrend(6) }
   }, [], undefined)
   const trend = statsData?.trend

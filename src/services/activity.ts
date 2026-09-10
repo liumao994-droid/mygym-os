@@ -1,5 +1,15 @@
 import { db } from '@/db/db'
-import type { ActivityScore, ActivitySession, DistanceUnit, NonStrengthSport, StrokeType } from '@/db/models'
+import type {
+  ActivityScore,
+  ActivitySession,
+  DistanceUnit,
+  NonStrengthSport,
+  StrokeType,
+  VolleyballPosition,
+  VolleyballSessionType,
+  VolleyballSetScore,
+  VolleyballStats,
+} from '@/db/models'
 import { STROKE_LABEL } from '@/db/models'
 import { currentMonthKey, todayStr, uid } from '@/lib/util'
 
@@ -37,6 +47,11 @@ export interface ActivityInput {
   sets?: { a: number; b: number }[]
   technique?: ActivitySession['technique']
   fitness?: ActivitySession['fitness']
+  /* ---- 排球 ---- */
+  volleyballSessionType?: VolleyballSessionType
+  volleyballPosition?: VolleyballPosition
+  volleyballSets?: VolleyballSetScore[]
+  volleyballStats?: VolleyballStats
   rpe?: number
   notes?: string
 }
@@ -72,6 +87,11 @@ export async function createActivity(input: ActivityInput): Promise<ActivitySess
     sets: input.sets,
     technique: input.technique,
     fitness: input.fitness,
+    /* ---- 排球 ---- */
+    volleyballSessionType: input.volleyballSessionType,
+    volleyballPosition: input.volleyballPosition,
+    volleyballSets: input.volleyballSets,
+    volleyballStats: input.volleyballStats,
     rpe: input.rpe,
     notes: input.notes,
     createdAt: now,
@@ -257,6 +277,18 @@ const ACTIVITY_PREVIEW: Partial<Record<NonStrengthSport, (s: ActivitySession) =>
     else if (s.surface === 'clay') parts.push('红土')
     else if (s.surface === 'grass') parts.push('草地')
     return parts.length ? parts.join(' · ') : undefined
+  },
+  volleyball: (s) => {
+    const parts: string[] = []
+    const tally = volleyballSetTally(s.volleyballSets)
+    if (tally.decided > 0) parts.push(`${tally.result === 'win' ? '胜' : tally.result === 'loss' ? '负' : '平'} ${tally.won}:${tally.lost}`)
+    const direct = volleyballDirectPoints(s.volleyballStats)
+    if (direct > 0) parts.push(`${direct}分`)
+    const aces = s.volleyballStats?.serve?.aces
+    if (aces) parts.push(`${aces} ACE`)
+    const digs = s.volleyballStats?.dig?.successful
+    if (digs) parts.push(`${digs}次有效防守`)
+    return parts.slice(0, 3).join(' · ') || undefined
   },
 }
 
@@ -544,4 +576,217 @@ export async function getTennisMonthlyTrend(
     })
   }
   return out
+}
+
+/* =============== 排球 =============== */
+
+export function safePercent(numerator?: number, denominator?: number): number | null {
+  if (!denominator || denominator <= 0 || numerator === undefined || numerator < 0) return null
+  return Math.round((numerator / denominator) * 1000) / 10
+}
+
+export function volleyballSetTally(sets?: VolleyballSetScore[]): {
+  decided: number
+  won: number
+  lost: number
+  result: 'win' | 'loss' | 'draw' | null
+} {
+  let won = 0
+  let lost = 0
+  for (const set of sets ?? []) {
+    if (!Number.isFinite(set.ourScore) || !Number.isFinite(set.opponentScore) || set.ourScore === set.opponentScore) continue
+    if ((set.ourScore ?? 0) > (set.opponentScore ?? 0)) won++
+    else lost++
+  }
+  const result = won + lost === 0 ? null : won > lost ? 'win' : lost > won ? 'loss' : 'draw'
+  return { decided: won + lost, won, lost, result }
+}
+
+export function volleyballDirectPoints(stats?: VolleyballStats): number {
+  return (stats?.attack?.points ?? 0) + (stats?.serve?.aces ?? 0) + (stats?.block?.points ?? 0)
+}
+
+export interface VolleyballAggregate {
+  sessions: number
+  totalMinutes: number
+  avgMinutes: number | null
+  matchCount: number
+  wins: number
+  losses: number
+  draws: number
+  matchWinRate: number | null
+  setsWon: number
+  setsLost: number
+  directPoints: number
+  attackPoints: number
+  aces: number
+  blockPoints: number
+  effectiveBlocks: number
+  successfulDigs: number
+  perfectReceptions: number
+  serveAttempts: number
+  serveErrors: number
+  attackAttempts: number
+  attackErrors: number
+  attackBlocked: number
+  receptionAttempts: number
+  receptionErrors: number
+  digAttempts: number
+  setAttempts: number
+  successfulSets: number
+  aceRate: number | null
+  serveErrorRate: number | null
+  attackScoreRate: number | null
+  attackEfficiency: number | null
+  receptionPerfectRate: number | null
+  receptionErrorRate: number | null
+  digSuccessRate: number | null
+  setSuccessRate: number | null
+  positions: { position: VolleyballPosition; count: number }[]
+  best: { directPoints: number; aces: number; blockPoints: number; successfulDigs: number }
+}
+
+export function summarizeVolleyballSessions(sessions: ActivitySession[]): VolleyballAggregate {
+  const out: VolleyballAggregate = {
+    sessions: sessions.length,
+    totalMinutes: 0,
+    avgMinutes: null,
+    matchCount: 0,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    matchWinRate: null,
+    setsWon: 0,
+    setsLost: 0,
+    directPoints: 0,
+    attackPoints: 0,
+    aces: 0,
+    blockPoints: 0,
+    effectiveBlocks: 0,
+    successfulDigs: 0,
+    perfectReceptions: 0,
+    serveAttempts: 0,
+    serveErrors: 0,
+    attackAttempts: 0,
+    attackErrors: 0,
+    attackBlocked: 0,
+    receptionAttempts: 0,
+    receptionErrors: 0,
+    digAttempts: 0,
+    setAttempts: 0,
+    successfulSets: 0,
+    aceRate: null,
+    serveErrorRate: null,
+    attackScoreRate: null,
+    attackEfficiency: null,
+    receptionPerfectRate: null,
+    receptionErrorRate: null,
+    digSuccessRate: null,
+    setSuccessRate: null,
+    positions: [],
+    best: { directPoints: 0, aces: 0, blockPoints: 0, successfulDigs: 0 },
+  }
+  const positions = new Map<VolleyballPosition, number>()
+  for (const session of sessions) {
+    out.totalMinutes += session.durationMin ?? 0
+    if (session.volleyballPosition) positions.set(session.volleyballPosition, (positions.get(session.volleyballPosition) ?? 0) + 1)
+    const tally = volleyballSetTally(session.volleyballSets)
+    if (session.volleyballSessionType === 'scrimmage' || session.volleyballSessionType === 'official') out.matchCount++
+    out.setsWon += tally.won
+    out.setsLost += tally.lost
+    if (tally.result === 'win') out.wins++
+    else if (tally.result === 'loss') out.losses++
+    else if (tally.result === 'draw') out.draws++
+    const v = session.volleyballStats
+    const direct = volleyballDirectPoints(v)
+    out.directPoints += direct
+    out.attackPoints += v?.attack?.points ?? 0
+    out.aces += v?.serve?.aces ?? 0
+    out.blockPoints += v?.block?.points ?? 0
+    out.effectiveBlocks += v?.block?.effective ?? 0
+    out.successfulDigs += v?.dig?.successful ?? 0
+    out.perfectReceptions += v?.reception?.perfect ?? 0
+    out.serveAttempts += v?.serve?.attempts ?? 0
+    out.serveErrors += v?.serve?.errors ?? 0
+    out.attackAttempts += v?.attack?.attempts ?? 0
+    out.attackErrors += v?.attack?.errors ?? 0
+    out.attackBlocked += v?.attack?.blocked ?? 0
+    out.receptionAttempts += v?.reception?.attempts ?? 0
+    out.receptionErrors += v?.reception?.errors ?? 0
+    out.digAttempts += v?.dig?.attempts ?? 0
+    out.setAttempts += v?.set?.attempts ?? 0
+    out.successfulSets += v?.set?.successful ?? 0
+    out.best.directPoints = Math.max(out.best.directPoints, direct)
+    out.best.aces = Math.max(out.best.aces, v?.serve?.aces ?? 0)
+    out.best.blockPoints = Math.max(out.best.blockPoints, v?.block?.points ?? 0)
+    out.best.successfulDigs = Math.max(out.best.successfulDigs, v?.dig?.successful ?? 0)
+  }
+  out.avgMinutes = out.sessions ? Math.round(out.totalMinutes / out.sessions) : null
+  out.matchWinRate = out.wins + out.losses > 0 ? safePercent(out.wins, out.wins + out.losses) : null
+  out.aceRate = safePercent(out.aces, out.serveAttempts)
+  out.serveErrorRate = safePercent(out.serveErrors, out.serveAttempts)
+  out.attackScoreRate = safePercent(out.attackPoints, out.attackAttempts)
+  out.attackEfficiency = out.attackAttempts > 0
+    ? Math.round(((out.attackPoints - out.attackErrors - out.attackBlocked) / out.attackAttempts) * 1000) / 10
+    : null
+  out.receptionPerfectRate = safePercent(out.perfectReceptions, out.receptionAttempts)
+  out.receptionErrorRate = safePercent(out.receptionErrors, out.receptionAttempts)
+  out.digSuccessRate = safePercent(out.successfulDigs, out.digAttempts)
+  out.setSuccessRate = safePercent(out.successfulSets, out.setAttempts)
+  out.positions = [...positions.entries()].map(([position, count]) => ({ position, count })).sort((a, b) => b.count - a.count)
+  return out
+}
+
+export async function getVolleyballStats(start?: string, end?: string): Promise<VolleyballAggregate> {
+  const sessions = await listActivities({ sport: 'volleyball', start, end })
+  return summarizeVolleyballSessions(sessions)
+}
+
+export async function getVolleyballYearTrend(year: number): Promise<{ month: string; sessions: number; minutes: number }[]> {
+  const all = await listActivities({ sport: 'volleyball', start: `${year}-01-01`, end: `${year}-12-31` })
+  return Array.from({ length: 12 }, (_, i) => {
+    const month = `${year}-${String(i + 1).padStart(2, '0')}`
+    const rows = all.filter((session) => session.date.startsWith(month))
+    return { month, sessions: rows.length, minutes: rows.reduce((sum, session) => sum + (session.durationMin ?? 0), 0) }
+  })
+}
+
+export function volleyballPerformanceNotes(session: ActivitySession): string[] {
+  const stats = session.volleyballStats
+  if (!stats) return []
+  const notes: string[] = []
+  const aceRate = safePercent(stats.serve?.aces, stats.serve?.attempts)
+  const attackRate = safePercent(stats.attack?.points, stats.attack?.attempts)
+  const receptionRate = safePercent(stats.reception?.perfect, stats.reception?.attempts)
+  if ((stats.serve?.aces ?? 0) >= 3 || (aceRate !== null && aceRate >= 20)) notes.push('今天发球很有威胁')
+  if (attackRate !== null && attackRate >= 45) notes.push('进攻端表现不错')
+  if (receptionRate !== null && receptionRate >= 60) notes.push('今天接发状态稳定')
+  if ((stats.dig?.successful ?? 0) >= 5) notes.push('后排防守参与度很高')
+  if ((stats.attack?.attempts ?? 0) > 0 && (stats.attack?.errors ?? 0) / (stats.attack?.attempts ?? 1) >= 0.3) notes.push('今天进攻端失误偏多')
+  return notes.slice(0, 3)
+}
+
+export function validateVolleyballStats(stats?: VolleyballStats): string | null {
+  if (!stats) return null
+  const groups = Object.values(stats)
+  for (const group of groups) {
+    for (const value of Object.values(group ?? {}) as (number | undefined)[]) {
+      if (value !== undefined && (!Number.isFinite(value) || value < 0 || !Number.isInteger(value))) return '专业数据必须是非负整数'
+    }
+  }
+  const checks: [number | undefined, number | undefined, string][] = [
+    [stats.serve?.aces, stats.serve?.attempts, 'ACE 不能大于发球次数'],
+    [stats.serve?.errors, stats.serve?.attempts, '发球失误不能大于发球次数'],
+    [stats.attack?.points, stats.attack?.attempts, '进攻得分不能大于进攻次数'],
+    [stats.attack?.errors, stats.attack?.attempts, '进攻失误不能大于进攻次数'],
+    [stats.attack?.blocked, stats.attack?.attempts, '被拦次数不能大于进攻次数'],
+    [stats.reception?.perfect, stats.reception?.attempts, '到位球不能大于接发次数'],
+    [stats.reception?.errors, stats.reception?.attempts, '接发失误不能大于接发次数'],
+    [stats.dig?.successful, stats.dig?.attempts, '有效防守不能大于防守次数'],
+    [stats.set?.successful, stats.set?.attempts, '有效二传不能大于二传次数'],
+  ]
+  for (const [value, attempts, message] of checks) {
+    if (value !== undefined && attempts !== undefined && value > attempts) return message
+  }
+  return null
 }

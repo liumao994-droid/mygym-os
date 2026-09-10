@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { motion } from 'framer-motion'
 import { ChevronLeft, Sparkles } from 'lucide-react'
 import { fmtHoursMin, fmtMonthCN, fmtVolume } from '@/lib/util'
-import { SPORT_META } from '@/db/models'
+import { SPORT_META, VOLLEYBALL_POSITION_LABEL } from '@/db/models'
 import { buildMonthlyReport, type MonthlyReport } from '@/services/reports'
 import { generateAIAnalysis, getCachedAIAnalysis } from '@/services/ai'
 import { toDisplayWeight } from '@/services/calc'
@@ -103,6 +103,42 @@ export default function MonthlyReportPage() {
                 <div className="num mt-1 text-lg font-bold">{fmtHoursMin(report.activity.minutes)}</div>
                 <div className="text-[10px] text-ink-3">运动时长</div>
               </div>
+            </div>
+          </Card>
+        )}
+
+        {report.volleyball && (
+          <Card className={`${WM_PANEL} !p-5`}>
+            <BrandWatermark size="sm" pos="br" opacity="opacity-[0.025]" />
+            <SectionTitle title="🏐 排球月度统计" />
+            <div className="grid grid-cols-3 gap-y-4 text-center">
+              <Stat label="次数" value={`${report.volleyball.sessions}`} sub="次" />
+              <Stat label="总时长" value={fmtHoursMin(report.volleyball.totalMinutes)} sub="" />
+              <Stat label="平均时长" value={report.volleyball.avgMinutes === null ? '—' : `${report.volleyball.avgMinutes}`} sub={report.volleyball.avgMinutes === null ? '' : '分钟'} />
+              <Stat label="比赛 / 对抗" value={`${report.volleyball.matchCount}`} sub="场" />
+              <Stat label="胜 / 负" value={report.volleyball.wins + report.volleyball.losses ? `${report.volleyball.wins}:${report.volleyball.losses}` : '—'} sub="" />
+              <Stat label="胜率" value={report.volleyball.matchWinRate === null ? '—' : `${report.volleyball.matchWinRate}%`} sub={`局 ${report.volleyball.setsWon}:${report.volleyball.setsLost}`} />
+            </div>
+            {(report.volleyball.directPoints + report.volleyball.successfulDigs + report.volleyball.perfectReceptions > 0) && (
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                {[
+                  ['个人得分', report.volleyball.directPoints],
+                  ['进攻得分', report.volleyball.attackPoints],
+                  ['ACE', report.volleyball.aces],
+                  ['拦网得分', report.volleyball.blockPoints],
+                  ['有效防守', report.volleyball.successfulDigs],
+                  ['到位一传', report.volleyball.perfectReceptions],
+                ].filter(([, value]) => Number(value) > 0).map(([label, value]) => (
+                  <div key={String(label)} className="rounded-2xl bg-surface-2 p-2.5"><div className="num text-lg font-bold">{value}</div><div className="text-[10px] text-ink-3">{label}</div></div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-3">
+              {report.volleyball.attackScoreRate !== null && <span>进攻得分率 {report.volleyball.attackScoreRate}%</span>}
+              {report.volleyball.attackEfficiency !== null && <span>净效率 {report.volleyball.attackEfficiency}%</span>}
+              {report.volleyball.receptionPerfectRate !== null && <span>一传到位率 {report.volleyball.receptionPerfectRate}%</span>}
+              {report.volleyball.digSuccessRate !== null && <span>防守成功率 {report.volleyball.digSuccessRate}%</span>}
+              {report.volleyball.positions[0] && <span>最常用：{VOLLEYBALL_POSITION_LABEL[report.volleyball.positions[0].position]} · {report.volleyball.positions[0].count}次</span>}
             </div>
           </Card>
         )}

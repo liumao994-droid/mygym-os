@@ -163,6 +163,10 @@ export const TABLES: Record<string, TableDef> = {
       sets: { col: 'set_scores', type: 'json', optional: true },
       technique: { col: 'technique', type: 'json', optional: true },
       fitness: { col: 'fitness', type: 'json', optional: true },
+      volleyballSessionType: { col: 'volleyball_session_type', type: 'text', optional: true },
+      volleyballPosition: { col: 'volleyball_position', type: 'text', optional: true },
+      volleyballSets: { col: 'volleyball_sets', type: 'json', optional: true },
+      volleyballStats: { col: 'volleyball_stats', type: 'json', optional: true },
       distanceM: { col: 'distance_m', type: 'real', optional: true },
       distanceUnit: { col: 'distance_unit', type: 'text', optional: true },
       stroke: { col: 'stroke', type: 'text', optional: true },
@@ -260,6 +264,50 @@ export function validateRow(table: string, model: Record<string, unknown>, requi
   const dateFields = Object.keys(def.fields).filter((k) => def.fields[k].col === 'date')
   for (const f of dateFields) {
     if (typeof model[f] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(model[f] as string)) return '日期格式必须为 YYYY-MM-DD'
+  }
+  if (table === 'activitySessions' && model.sport === 'volleyball') {
+    const error = validateVolleyballActivity(model)
+    if (error) return error
+  }
+  return null
+}
+
+function validVolleyballInt(value: unknown, max = 1000000): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && Number.isInteger(value) && value >= 0 && value <= max
+}
+
+function validateVolleyballActivity(model: Record<string, unknown>): string | null {
+  if (model.volleyballSessionType !== undefined && !['training', 'casual', 'scrimmage', 'official'].includes(String(model.volleyballSessionType))) return 'volleyballSessionType 无效'
+  if (model.volleyballPosition !== undefined && !['oh', 'mb', 'opp', 'setter', 'libero', 'none', 'other'].includes(String(model.volleyballPosition))) return 'volleyballPosition 无效'
+  if (model.volleyballSets !== undefined) {
+    if (!Array.isArray(model.volleyballSets)) return 'volleyballSets 必须是数组'
+    for (const set of model.volleyballSets) {
+      if (!set || typeof set !== 'object' || Array.isArray(set)) return '排球逐局比分格式无效'
+      const row = set as Record<string, unknown>
+      if (!validVolleyballInt(row.ourScore, 999) || !validVolleyballInt(row.opponentScore, 999)) return '排球逐局比分必须是 0-999 的整数'
+    }
+  }
+  if (model.volleyballStats !== undefined) {
+    if (!model.volleyballStats || typeof model.volleyballStats !== 'object' || Array.isArray(model.volleyballStats)) return 'volleyballStats 必须是对象'
+    const groups = model.volleyballStats as Record<string, unknown>
+    for (const group of Object.values(groups)) {
+      if (!group || typeof group !== 'object' || Array.isArray(group)) return 'volleyballStats 分类格式无效'
+      for (const value of Object.values(group as Record<string, unknown>)) {
+        if (value !== undefined && value !== null && !validVolleyballInt(value)) return 'volleyballStats 包含无效整数'
+      }
+    }
+    const serve = (groups.serve ?? {}) as Record<string, number | undefined>
+    const attack = (groups.attack ?? {}) as Record<string, number | undefined>
+    const reception = (groups.reception ?? {}) as Record<string, number | undefined>
+    const dig = (groups.dig ?? {}) as Record<string, number | undefined>
+    const set = (groups.set ?? {}) as Record<string, number | undefined>
+    const pairs: [number | undefined, number | undefined][] = [
+      [serve.aces, serve.attempts], [serve.errors, serve.attempts],
+      [attack.points, attack.attempts], [attack.errors, attack.attempts], [attack.blocked, attack.attempts],
+      [reception.perfect, reception.attempts], [reception.errors, reception.attempts],
+      [dig.successful, dig.attempts], [set.successful, set.attempts],
+    ]
+    if (pairs.some(([value, total]) => value !== undefined && total !== undefined && value > total)) return '排球子项统计不能大于总次数'
   }
   return null
 }

@@ -8,7 +8,7 @@ import type { ActivitySession } from '@/db/models'
 import { SPORT_META, SPORT_TYPES } from '@/db/models'
 import { ActivityDetailSheet } from '@/pages/BadmintonPages'
 import { describeActivity as describeSession } from '@/services/activity'
-import { BODY_PART_META, type BodyPartId, type WorkoutSession } from '@/db/models'
+import { BODY_PART_META, type BodyPartId, type SportType, type WorkoutSession } from '@/db/models'
 import { addDays, cn, fmtDateCN, fmtMonthCN, fmtVolume, fmtWeekdayCN, todayStr, parseLocalDate, toLocalDate } from '@/lib/util'
 import { setVolume } from '@/services/calc'
 import { getDayStates } from '@/services/stats'
@@ -34,7 +34,13 @@ interface TimelineRow {
   sortTs: number
 }
 
-type HistoryFilter = 'all' | 'strength' | 'badminton' | 'swimming'
+type HistoryFilter = 'all' | SportType
+
+function activityEditPath(activity: ActivitySession): string {
+  return activity.sport === 'volleyball'
+    ? `/volleyball/${activity.id}`
+    : `/${activity.sport}/${activity.id}/edit`
+}
 
 export default function HistoryPage() {
   const [mode, setMode] = useState<'calendar' | 'timeline'>('calendar')
@@ -163,7 +169,9 @@ function CalendarView({ cursor, onCursor }: { cursor: string; onCursor: (m: stri
                   if (ds?.session) navigate(`/workout/${ds.session.id}`)
                   else if (ds?.activities?.length) {
                     const first = ds.activities[0]
-                    first.sport === 'swimming' ? setDetailSwim(first) : setDetailActivity(first)
+                    if (first.sport === 'volleyball') navigate(`/volleyball/${first.id}`)
+                    else if (first.sport === 'swimming') setDetailSwim(first)
+                    else setDetailActivity(first)
                   }
                 }}
                 className={cn(
@@ -211,7 +219,7 @@ function CalendarView({ cursor, onCursor }: { cursor: string; onCursor: (m: stri
         onClose={() => setDetailActivity(null)}
         onEdit={(a: ActivitySession) => {
           setDetailActivity(null)
-          navigate(`/badminton/${a.id}/edit`)
+          navigate(activityEditPath(a))
         }}
       />
       <ActivityDetailSheet
@@ -312,9 +320,11 @@ function TimelineView({ days, filter, onMore }: { days: number; filter: HistoryF
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.3 }}
-              onClick={() =>
-                row.activity!.sport === 'swimming' ? setDetailSwim(row.activity!) : setDetailActivity(row.activity!)
-              }
+              onClick={() => {
+                if (row.activity!.sport === 'volleyball') navigate(`/volleyball/${row.activity!.id}`)
+                else if (row.activity!.sport === 'swimming') setDetailSwim(row.activity!)
+                else setDetailActivity(row.activity!)
+              }}
               className="flex w-full items-center gap-3.5 rounded-3xl bg-surface p-4 text-left ring-1 ring-line active:scale-[0.99]"
             >
               <span
@@ -383,7 +393,7 @@ function TimelineView({ days, filter, onMore }: { days: number; filter: HistoryF
         onClose={() => setDetailActivity(null)}
         onEdit={(a: ActivitySession) => {
           setDetailActivity(null)
-          navigate(`/badminton/${a.id}/edit`)
+          navigate(activityEditPath(a))
         }}
       />
       <ActivityDetailSheet

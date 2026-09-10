@@ -467,6 +467,43 @@ test('运动记录:双用户隔离 + 越权 404', async () => {
   assert.equal(delA.status, 200)
 })
 
+
+test('排球记录:专业数据、逐局比分可完整保存与更新', async () => {
+  const created = await api(url, '/activities', {
+    method: 'POST',
+    token: A.token,
+    body: {
+      sport: 'volleyball',
+      date: '2026-09-04',
+      durationMin: 80,
+      volleyballSessionType: 'official',
+      volleyballPosition: 'oh',
+      volleyballSets: [
+        { ourScore: 25, opponentScore: 20 },
+        { ourScore: 21, opponentScore: 25 },
+        { ourScore: 25, opponentScore: 18 },
+        { ourScore: 25, opponentScore: 22 },
+      ],
+      volleyballStats: {
+        serve: { attempts: 10, aces: 3, errors: 2 },
+        attack: { attempts: 20, points: 10, errors: 2, blocked: 3 },
+        reception: { attempts: 20, perfect: 12, errors: 2 },
+      },
+    },
+  })
+  assert.equal(created.status, 201)
+  assert.equal(created.json.activity.volleyballStats.serve.aces, 3)
+  assert.equal(created.json.activity.volleyballSets.length, 4)
+
+  const id = created.json.activity.id
+  const patched = await api(url, `/activities/${id}`, {
+    method: 'PATCH', token: A.token, body: { volleyballPosition: 'setter', durationMin: 90 },
+  })
+  assert.equal(patched.status, 200)
+  assert.equal(patched.json.activity.volleyballPosition, 'setter')
+  assert.equal(patched.json.activity.durationMin, 90)
+})
+
 /* ---------------- 4. 模板 / 休息日 / 动作库隔离 ---------------- */
 
 test('模板、休息日、动作库互相隔离', async () => {
@@ -505,6 +542,10 @@ test('导出:schema 3 + 归属当前用户', async () => {
   assert.equal(r.json.exportedBy.id, A.userId)
   assert.ok(r.json.data.sessions.length >= 2)
   assert.ok(r.json.data.exercises.length >= 30) // 新用户播种的默认动作库
+  const volleyball = r.json.data.activitySessions.find((activity: { sport: string }) => activity.sport === 'volleyball')
+  assert.equal(volleyball.volleyballPosition, 'setter')
+  assert.equal(volleyball.volleyballSets.length, 4)
+  assert.equal(volleyball.volleyballStats.serve.aces, 3)
   for (const s of r.json.data.sessions) {
     assert.equal(s.userId, A.userId)
   }
