@@ -1,7 +1,7 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { toast, useSettings } from '@/store/settings'
-import { useAuth } from '@/store/auth'
+import { subscribeAuthStorageSync, useAuth } from '@/store/auth'
 import { bootstrapDB } from '@/services/io'
 import { getAppState, getLegacyDataCounts, setAppState } from '@/db/db'
 import { adoptLegacyData } from '@/services/cloud'
@@ -139,6 +139,8 @@ export default function App() {
   useEffect(() => {
     void hydrateAuth().catch((e) => console.error('认证初始化失败', e))
   }, [hydrateAuth])
+
+  useEffect(() => subscribeAuthStorageSync(), [])
 
   useEffect(() => {
     if (authStatus === 'unknown') return

@@ -20,6 +20,18 @@ export function createApp(cfg: AppConfig, store: Store): Express {
   app.disable('x-powered-by')
   app.set('trust proxy', 1)
 
+  if (cfg.isProduction) {
+    app.use((_req, res, next) => {
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https:; manifest-src 'self'; worker-src 'self' blob:",
+      )
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+      next()
+    })
+  }
+
   // CORS:小程序等非浏览器客户端不带 Origin,天然放行;浏览器来源按白名单校验
   const corsOptions: cors.CorsOptions = {
     origin: (origin, cb) => {

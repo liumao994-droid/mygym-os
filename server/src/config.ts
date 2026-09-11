@@ -6,6 +6,7 @@ import { randomBytes } from 'node:crypto'
  */
 
 export interface AppConfig {
+  isProduction: boolean
   port: number
   host: string
   dbFile: string
@@ -60,6 +61,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     throw new Error('生产环境必须设置明确的 ALLOWED_ORIGINS，不能使用 *')
   }
   return {
+    isProduction: isProd,
     port: intEnv(env, 'PORT', 8787),
     host: env.HOST ?? '127.0.0.1',
     dbFile: env.DB_FILE ?? 'server-data/mygym.db',

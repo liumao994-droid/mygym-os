@@ -35,6 +35,14 @@ CREATE TABLE IF NOT EXISTS auth_identities (
   UNIQUE(provider, provider_id)
 );
 
+/** V1 JWT 注销表：只保存 jti 与原 token 的自然过期时间，不保存 token 本身。 */
+CREATE TABLE IF NOT EXISTS revoked_tokens (
+  jti TEXT PRIMARY KEY,
+  expires_at INTEGER NOT NULL,
+  revoked_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expiry ON revoked_tokens(expires_at);
+
 CREATE TABLE IF NOT EXISTS exercises (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,

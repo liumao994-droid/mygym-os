@@ -62,7 +62,7 @@ function normalizeBase(base: string): string {
 
 const AUTH_STORAGE_KEY = 'mygym.auth.v1'
 
-interface StoredAuth {
+export interface StoredAuth {
   token: string
   user: User
 }
@@ -88,12 +88,11 @@ export function clearStoredAuth(): void {
 
 /* =============== 请求封装 =============== */
 
-function authHeader(): Record<string, string> {
-  const stored = loadStoredAuth()
+function authHeader(stored: StoredAuth | null = loadStoredAuth()): Record<string, string> {
   return stored?.token ? { Authorization: `Bearer ${stored.token}` } : {}
 }
 
-async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 15000): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 15000, auth: StoredAuth | null = loadStoredAuth()): Promise<T> {
   const base = await getApiBase()
   if (!base) throw apiError('API_NOT_CONFIGURED', '未配置 MyGym API 服务器地址', 0)
   const controller = new AbortController()
@@ -101,7 +100,7 @@ async function request<T>(path: string, init: RequestInit = {}, timeoutMs = 1500
   try {
     const res = await fetch(`${base}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...authHeader(), ...(init.headers ?? {}) },
+      headers: { 'Content-Type': 'application/json', ...authHeader(auth), ...(init.headers ?? {}) },
       signal: controller.signal,
     })
     const text = await res.text()
@@ -159,19 +158,19 @@ export const api = {
   login(username: string, password: string): Promise<AuthResponse> {
     return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
   },
-  logout(): Promise<{ ok: boolean }> {
-    return request('/auth/logout', { method: 'POST' })
+  logout(auth: StoredAuth | null = loadStoredAuth()): Promise<{ ok: boolean }> {
+    return request('/auth/logout', { method: 'POST' }, 15000, auth)
   },
-  me(): Promise<{ user: User }> {
-    return request('/auth/me')
+  me(auth: StoredAuth | null = loadStoredAuth()): Promise<{ user: User }> {
+    return request('/auth/me', {}, 15000, auth)
   },
 
   /* ---- 数据同步 ---- */
-  exportData(): Promise<BackupFile> {
-    return request('/data/export', {}, 60000)
+  exportData(auth: StoredAuth | null = loadStoredAuth()): Promise<BackupFile> {
+    return request('/data/export', {}, 60000, auth)
   },
-  importData(backup: BackupFile): Promise<ImportResponse> {
-    return request('/data/import', { method: 'POST', body: JSON.stringify(backup) }, 120000)
+  importData(backup: BackupFile, auth: StoredAuth | null = loadStoredAuth()): Promise<ImportResponse> {
+    return request('/data/import', { method: 'POST', body: JSON.stringify(backup) }, 120000, auth)
   },
 
   /* ---- AI(后端代理:验证身份 → 限额 → 服务端持有 Key 调用 Provider) ---- */

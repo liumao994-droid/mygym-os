@@ -1,10 +1,35 @@
 import { activeUserId, getAppState, getLegacyDb, setAppState } from '@/db/db'
 import type { BackupFile, CloudMigrationState } from '@/db/models'
-import { api, type ImportResponse } from '@/services/api'
+import { api, loadStoredAuth, type ImportResponse, type StoredAuth } from '@/services/api'
 import { createBackup, importBackup } from '@/services/io'
 
 function requireActiveUser(): void {
   if (!activeUserId) throw new Error('请先登录后再使用云端同步')
+}
+
+/**
+ * 云端操作必须固定使用同一个 token 快照，并在请求前后确认它仍属于当前本地数据库。
+ * 防止其他标签切换账号时把 A 的本地资料上传到 B 的云端账号。
+ */
+function currentAuthSnapshot(): StoredAuth {
+  requireActiveUser()
+  const auth = loadStoredAuth()
+  if (!auth || auth.user.id !== activeUserId) throw new Error('账号状态已变化，请重新登录后再同步')
+  return auth
+}
+
+function assertSnapshotCurrent(auth: StoredAuth): void {
+  const current = loadStoredAuth()
+  if (!activeUserId || current?.token !== auth.token || current.user.id !== activeUserId) {
+    throw new Error('账号状态已变化，已取消同步操作')
+  }
+}
+
+async function verifyCloudIdentity(auth: StoredAuth): Promise<void> {
+  assertSnapshotCurrent(auth)
+  const { user } = await api.me(auth)
+  if (user.id !== activeUserId) throw new Error('本地账号与登录身份不一致，已拒绝同步')
+  assertSnapshotCurrent(auth)
 }
 
 /** 认领旧单用户资料：只复制到当前账号，遗留资料库始终保留。 */
@@ -79,12 +104,18 @@ export async function migrateLegacyToCloud(): Promise<CloudMigrationState> {
 
 /** 显式上传当前资料库；服务端按 token 强制归属并拒绝越权记录。 */
 export async function syncToCloud(): Promise<ImportResponse> {
-  requireActiveUser()
-  return api.importData(await createBackup())
+  const auth = currentAuthSnapshot()
+  await verifyCloudIdentity(auth)
+  const backup = await createBackup()
+  assertSnapshotCurrent(auth)
+  return api.importData(backup, auth)
 }
 
 /** 从当前账号的云端资料合并到本机，不清空本地记录。 */
 export async function restoreFromCloud() {
-  requireActiveUser()
-  return importBackup(await api.exportData(), 'merge')
+  const auth = currentAuthSnapshot()
+  await verifyCloudIdentity(auth)
+  const backup = await api.exportData(auth)
+  assertSnapshotCurrent(auth)
+  return importBackup(backup, 'merge')
 }

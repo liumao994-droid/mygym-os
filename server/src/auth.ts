@@ -13,6 +13,7 @@ import type { AppConfig } from './config.js'
 
 export interface JwtPayload {
   sub: string
+  jti: string
   nickname: string
   provider: string
   iat: number
@@ -23,9 +24,9 @@ function b64url(input: Buffer | string): string {
   return Buffer.from(input).toString('base64url')
 }
 
-export function signToken(payload: Omit<JwtPayload, 'iat' | 'exp'>, secret: string, expiresDays: number): string {
+export function signToken(payload: Omit<JwtPayload, 'iat' | 'exp' | 'jti'>, secret: string, expiresDays: number): string {
   const now = Math.floor(Date.now() / 1000)
-  const full: JwtPayload = { ...payload, iat: now, exp: now + expiresDays * 86400 }
+  const full: JwtPayload = { ...payload, jti: randomUUID(), iat: now, exp: now + expiresDays * 86400 }
   const head = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
   const body = b64url(JSON.stringify(full))
   const sig = createHmac('sha256', secret).update(`${head}.${body}`).digest('base64url')
@@ -46,7 +47,7 @@ export function verifyToken(token: string, secret: string): JwtPayload | null {
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as JwtPayload
-    if (typeof payload.sub !== 'string' || typeof payload.exp !== 'number') return null
+    if (typeof payload.sub !== 'string' || typeof payload.jti !== 'string' || typeof payload.exp !== 'number') return null
     if (payload.exp < Math.floor(Date.now() / 1000)) return null
     return payload
   } catch {
@@ -69,7 +70,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      auth?: { userId: string; user: AuthedUser }
+      auth?: { userId: string; tokenJti: string; tokenExpiresAt: number; user: AuthedUser }
     }
   }
 }
@@ -104,6 +105,13 @@ export function requireAuth(store: Store, cfg: AppConfig) {
       next(new HttpError(401, 'UNAUTHORIZED', '登录状态无效或已过期'))
       return
     }
+    const now = Math.floor(Date.now() / 1000)
+    // 注销记录只需保留到 token 自然过期；每次鉴权顺手清理过期行。
+    store.run('DELETE FROM revoked_tokens WHERE expires_at <= ?', now)
+    if (store.get('SELECT jti FROM revoked_tokens WHERE jti = ?', payload.jti)) {
+      next(new HttpError(401, 'UNAUTHORIZED', '登录状态已退出'))
+      return
+    }
     const row = store.get('SELECT id, username, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE id = ?', payload.sub)
     if (!row) {
       next(new HttpError(401, 'UNAUTHORIZED', '用户不存在'))
@@ -115,6 +123,8 @@ export function requireAuth(store: Store, cfg: AppConfig) {
     }
     req.auth = {
       userId: row.id as string,
+      tokenJti: payload.jti,
+      tokenExpiresAt: payload.exp,
       user: {
         id: row.id as string,
         username: typeof row.username === 'string' ? row.username : undefined,
@@ -131,7 +141,7 @@ export function requireAuth(store: Store, cfg: AppConfig) {
 }
 
 /** 便捷取用(挂载在 requireAuth 之后的路由内) */
-export function authOf(req: Request): { userId: string; user: AuthedUser } {
+export function authOf(req: Request): { userId: string; tokenJti: string; tokenExpiresAt: number; user: AuthedUser } {
   if (!req.auth) throw new HttpError(401, 'UNAUTHORIZED', '未登录')
   return req.auth
 }
