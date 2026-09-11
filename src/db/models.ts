@@ -27,6 +27,8 @@ export type AuthProvider = 'dev' | 'wechat' | 'phone' | 'local'
  */
 export interface User {
   id: ID
+  /** 本地账号名；第三方身份用户可能暂未设置。密码只在服务端以 hash 形式保存，绝不下发。 */
+  username?: string
   nickname: string
   avatar?: string
   authProvider: AuthProvider

@@ -15,6 +15,8 @@ export type SqliteValue = string | number | bigint | Buffer | null
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
+  username TEXT,
+  password_hash TEXT,
   nickname TEXT NOT NULL,
   avatar TEXT,
   auth_provider TEXT NOT NULL DEFAULT 'dev',
@@ -228,6 +230,15 @@ export class Store {
     this.db.exec('PRAGMA journal_mode = WAL;')
     this.db.exec('PRAGMA foreign_keys = ON;')
     this.db.exec(SCHEMA)
+    this.ensureUserAuthColumns()
+  }
+
+  /** 为已有 dev / 微信用户的 SQLite 文件补齐本地账号列，历史账号保持可用。 */
+  private ensureUserAuthColumns(): void {
+    const columns = new Set(this.all('PRAGMA table_info(users)').map((row) => String(row.name)))
+    if (!columns.has('username')) this.db.exec('ALTER TABLE users ADD COLUMN username TEXT')
+    if (!columns.has('password_hash')) this.db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT')
+    this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE) WHERE username IS NOT NULL')
   }
 
   run(sql: string, ...params: SqliteValue[]): { changes: number | bigint } {

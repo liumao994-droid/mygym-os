@@ -153,6 +153,15 @@ export const api = {
   devLogin(nickname: string): Promise<AuthResponse> {
     return request('/auth/dev-login', { method: 'POST', body: JSON.stringify({ nickname }) })
   },
+  register(username: string, password: string, nickname: string): Promise<AuthResponse> {
+    return request('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, nickname }) })
+  },
+  login(username: string, password: string): Promise<AuthResponse> {
+    return request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) })
+  },
+  logout(): Promise<{ ok: boolean }> {
+    return request('/auth/logout', { method: 'POST' })
+  },
   me(): Promise<{ user: User }> {
     return request('/auth/me')
   },

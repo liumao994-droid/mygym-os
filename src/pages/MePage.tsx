@@ -23,8 +23,7 @@ export default function MePage() {
   const [volume, setVolume] = useState<number | null>(null)
   const [nameDraft, setNameDraft] = useState(nickname)
   const [aiOpen, setAiOpen] = useState(false)
-  const { user, status, loginWithNickname, logout } = useAuth()
-  const [loginName, setLoginName] = useState(nickname)
+  const { user, logout } = useAuth()
   const [cloudBusy, setCloudBusy] = useState(false)
   const [legacyCounts, setLegacyCounts] = useState<{ sessions: number; sets: number; activities: number } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -34,8 +33,8 @@ export default function MePage() {
   }, [])
 
   useEffect(() => {
-    if (status === 'loggedIn') void getLegacyDataCounts().then(setLegacyCounts)
-  }, [status])
+    if (user) void getLegacyDataCounts().then(setLegacyCounts)
+  }, [user])
 
   function refreshStats() {
     getDataStats().then(setStats)
@@ -63,16 +62,6 @@ export default function MePage() {
       refreshStats()
     } catch (e) {
       toast(e instanceof Error ? e.message : '导入失败', 'error')
-    }
-  }
-
-  async function handleLogin() {
-    try {
-      await loginWithNickname(loginName)
-      await setNickname(loginName.trim())
-      toast('已登录，本机数据已切换到该账号')
-    } catch (e) {
-      toast(e instanceof Error ? e.message : '登录失败', 'error')
     }
   }
 
@@ -130,42 +119,29 @@ export default function MePage() {
 
         <SectionTitle title="账号与云端" />
         <Card className="space-y-3 !p-4">
-          {status === 'loggedIn' && user ? (
-            <>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold">{user.nickname}</div>
-                  <div className="mt-0.5 text-xs text-ink-3">已登录 · 资料按账号隔离</div>
+          {user && <>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent-dim text-lg font-bold text-accent">
+                  {user.avatar ? <img src={user.avatar} alt="" className="size-full object-cover" /> : user.nickname.slice(0, 1)}
                 </div>
-                <Button variant="secondary" size="sm" onClick={logout}>退出</Button>
-              </div>
-              {legacyCounts && (legacyCounts.sessions > 0 || legacyCounts.sets > 0 || legacyCounts.activities > 0) ? (
-                <Button block loading={cloudBusy} onClick={() => void handleCloud('migrate')}>
-                  认领旧本机数据并上传
-                </Button>
-              ) : (
-                <div className="grid grid-cols-2 gap-2.5">
-                  <Button variant="secondary" loading={cloudBusy} onClick={() => void handleCloud('upload')}>上传到云端</Button>
-                  <Button variant="secondary" loading={cloudBusy} onClick={() => void handleCloud('restore')}>从云端恢复</Button>
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{user.nickname}</div>
+                  <div className="mt-0.5 truncate text-xs text-ink-3">@{user.username ?? '已登录账号'} · 资料按账号隔离</div>
                 </div>
-              )}
-              <p className="text-[11px] leading-relaxed text-ink-3">迁移和恢复均为合并操作，不会删除原有本机资料。</p>
-            </>
-          ) : (
-            <>
-              <div className="text-[13px] leading-relaxed text-ink-3">登录后可隔离不同账号资料，并手动同步至云端。</div>
-              <div className="flex gap-2">
-                <input
-                  value={loginName}
-                  maxLength={24}
-                  onChange={(e) => setLoginName(e.target.value)}
-                  placeholder="输入昵称登录"
-                  className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm outline-none ring-1 ring-line focus:ring-accent/50"
-                />
-                <Button loading={cloudBusy} onClick={() => void handleLogin()}>登录</Button>
               </div>
-            </>
-          )}
+              <Button variant="secondary" size="sm" onClick={logout}>退出登录</Button>
+            </div>
+            {legacyCounts && (legacyCounts.sessions > 0 || legacyCounts.sets > 0 || legacyCounts.activities > 0) ? (
+              <Button block loading={cloudBusy} onClick={() => void handleCloud('migrate')}>认领旧本机数据并上传</Button>
+            ) : (
+              <div className="grid grid-cols-2 gap-2.5">
+                <Button variant="secondary" loading={cloudBusy} onClick={() => void handleCloud('upload')}>上传到云端</Button>
+                <Button variant="secondary" loading={cloudBusy} onClick={() => void handleCloud('restore')}>从云端恢复</Button>
+              </div>
+            )}
+            <p className="text-[11px] leading-relaxed text-ink-3">迁移和恢复均为合并操作，不会删除原有本机资料。</p>
+          </>}
         </Card>
 
         {/* 功能入口 */}

@@ -1,4 +1,5 @@
 import type { Store } from '../db/sqlite.js'
+import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { DEFAULT_EXERCISES } from '../db/defaults.js'
 import { HttpError, newId, type AuthedUser } from '../auth.js'
 import type { AppConfig } from '../config.js'
@@ -23,6 +24,7 @@ export interface WechatCode2SessionResult {
 function rowToUser(row: Record<string, unknown>): AuthedUser {
   return {
     id: row.id as string,
+    username: typeof row.username === 'string' ? row.username : undefined,
     nickname: row.nickname as string,
     avatar: (row.avatar as string | null) ?? null,
     authProvider: row.auth_provider as string,
@@ -33,8 +35,87 @@ function rowToUser(row: Record<string, unknown>): AuthedUser {
 }
 
 export function getUserById(store: Store, id: string): AuthedUser | null {
-  const row = store.get('SELECT id, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE id = ?', id)
+  const row = store.get('SELECT id, username, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE id = ?', id)
   return row ? rowToUser(row) : null
+}
+
+function normalizeUsername(raw: string): string {
+  return raw.trim().toLocaleLowerCase('en-US')
+}
+
+function validateLocalCredentials(rawUsername: string, rawPassword: string, rawNickname?: string): { username: string; password: string; nickname?: string } {
+  const username = normalizeUsername(rawUsername)
+  if (username.length < 2 || username.length > 32 || /\s/.test(username)) {
+    throw new HttpError(400, 'INVALID_USERNAME', '用户名需为 2-32 个字符，且不能包含空格')
+  }
+  if (rawPassword.length < 6 || rawPassword.length > 128) {
+    throw new HttpError(400, 'INVALID_PASSWORD', '密码需为 6-128 个字符')
+  }
+  const nickname = rawNickname === undefined ? undefined : rawNickname.trim()
+  if (nickname !== undefined && (!nickname || nickname.length > 24)) {
+    throw new HttpError(400, 'INVALID_NICKNAME', '昵称需为 1-24 个字符')
+  }
+  return { username, password: rawPassword, nickname }
+}
+
+/** 密码仅以 scrypt + 随机 salt 的 hash 保存，绝不进入 JWT、日志或响应。 */
+function hashPassword(password: string): string {
+  const salt = randomBytes(16)
+  const digest = scryptSync(password, salt, 64)
+  return `scrypt$${salt.toString('base64url')}$${digest.toString('base64url')}`
+}
+
+function passwordMatches(password: string, stored: string | null | undefined): boolean {
+  if (!stored) return false
+  const [kind, rawSalt, rawDigest] = stored.split('$')
+  if (kind !== 'scrypt' || !rawSalt || !rawDigest) return false
+  try {
+    const expected = Buffer.from(rawDigest, 'base64url')
+    const actual = scryptSync(password, Buffer.from(rawSalt, 'base64url'), expected.length)
+    return actual.length === expected.length && timingSafeEqual(actual, expected)
+  } catch {
+    return false
+  }
+}
+
+/** Web V1 本地账号注册。用户名唯一，密码 hash 只保存于服务端 SQLite。 */
+export function registerLocal(store: Store, rawUsername: string, rawPassword: string, rawNickname: string): AuthedUser {
+  const { username, password, nickname } = validateLocalCredentials(rawUsername, rawPassword, rawNickname)
+  const existing = store.get('SELECT id FROM users WHERE username = ? COLLATE NOCASE', username)
+  if (existing) throw new HttpError(409, 'USERNAME_TAKEN', '用户名已被使用')
+  const now = Date.now()
+  const id = newId()
+  return store.transaction(() => {
+    store.run(
+      'INSERT INTO users (id, username, password_hash, nickname, auth_provider, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      id,
+      username,
+      hashPassword(password),
+      nickname as string,
+      'local',
+      'active',
+      now,
+      now,
+    )
+    store.run('INSERT INTO auth_identities (id, user_id, provider, provider_id, created_at) VALUES (?, ?, ?, ?, ?)', newId(), id, 'local', username, now)
+    seedDefaultExercises(store, id, now)
+    return { id, username, nickname: nickname as string, avatar: null, authProvider: 'local', status: 'active', createdAt: now, updatedAt: now }
+  })
+}
+
+/** 登录错误刻意统一，避免泄露用户名是否存在。 */
+export function loginLocal(store: Store, rawUsername: string, rawPassword: string): AuthedUser {
+  const username = normalizeUsername(rawUsername)
+  if (!username || !rawPassword) throw new HttpError(401, 'INVALID_CREDENTIALS', '用户名或密码错误')
+  const row = store.get(
+    "SELECT id, username, password_hash, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE auth_provider = 'local' AND username = ? COLLATE NOCASE",
+    username,
+  )
+  if (!row || !passwordMatches(rawPassword, row.password_hash as string | null | undefined)) {
+    throw new HttpError(401, 'INVALID_CREDENTIALS', '用户名或密码错误')
+  }
+  if (row.status !== 'active') throw new HttpError(403, 'USER_DISABLED', '账号已被禁用')
+  return rowToUser(row)
 }
 
 /** 为新用户播种默认动作库 */
@@ -57,7 +138,7 @@ export function loginDev(store: Store, rawNickname: string): AuthedUser {
     throw new HttpError(400, 'INVALID_NICKNAME', '昵称需为 1-24 个字符')
   }
   const existing = store.get(
-    "SELECT id, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE auth_provider = 'dev' AND nickname = ?",
+    "SELECT id, username, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE auth_provider = 'dev' AND nickname = ?",
     nickname,
   )
   if (existing) {

@@ -14,6 +14,7 @@ import { toDisplayWeight } from '@/services/calc'
 import { Button, Card, EmptyState, SectionTitle, Sheet } from '@/components/ui/basic'
 import { SPORT_META, SPORT_TYPES } from '@/db/models'
 import { toast, useSettings } from '@/store/settings'
+import { useAuth } from '@/store/auth'
 import { BrandWatermark, WM_PANEL } from '@/components/BrandWatermark'
 
 /** 首页:今日状态 → 核心数据 → 最近进步 → 快捷入口 → 洞察 */
@@ -21,6 +22,7 @@ export default function HomePage() {
   const navigate = useNavigate()
   const [sportSheetOpen, setSportSheetOpen] = useState(false)
   const { unit, remindersEnabled } = useSettings()
+  const user = useAuth((s) => s.user)
   const today = todayStr()
 
   const todayState = useLiveQuery(() => getTodayState(today), [today], undefined)
@@ -71,11 +73,16 @@ export default function HomePage() {
   return (
     <div className="min-h-dvh overflow-clip isolate relative bg-bg pb-28">
       {/* 问候 + 日期 */}
-      <header className="safe-top px-5 pb-1 pt-6">
-        <h1 className="text-[30px] font-bold leading-tight tracking-tight">{suffix}</h1>
-        <p className="mt-0.5 text-[15px] text-ink-3">
-          今天 · {fmtDateFullCN(today)} · {fmtWeekdayCN(today)}
-        </p>
+      <header className="safe-top flex items-start justify-between gap-3 px-5 pb-1 pt-6">
+        <div>
+          <h1 className="text-[30px] font-bold leading-tight tracking-tight">{suffix}{user ? `，${user.nickname}` : ''}</h1>
+          <p className="mt-0.5 text-[15px] text-ink-3">
+            今天 · {fmtDateFullCN(today)} · {fmtWeekdayCN(today)}
+          </p>
+        </div>
+        {user && <button onClick={() => navigate('/me')} aria-label="账号信息" className="mt-1 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-accent-dim text-sm font-bold text-accent ring-1 ring-accent/20">
+          {user.avatar ? <img src={user.avatar} alt="" className="size-full object-cover" /> : user.nickname.slice(0, 1)}
+        </button>}
       </header>
 
       <BrandWatermark />

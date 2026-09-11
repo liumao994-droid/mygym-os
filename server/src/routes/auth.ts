@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { AppConfig } from '../config.js'
 import type { Store } from '../db/sqlite.js'
 import { requireAuth, authOf, signToken } from '../auth.js'
-import { loginDev, loginWithWechat } from '../services/users.js'
+import { loginDev, loginLocal, loginWithWechat, registerLocal } from '../services/users.js'
 
 /**
  * 认证路由。
@@ -14,6 +14,28 @@ import { loginDev, loginWithWechat } from '../services/users.js'
 export function authRoutes(store: Store, cfg: AppConfig): Router {
   const r = Router()
 
+  const issueToken = (user: { id: string; nickname: string; authProvider: string }) =>
+    signToken({ sub: user.id, nickname: user.nickname, provider: user.authProvider }, cfg.jwtSecret, cfg.jwtExpiresDays)
+
+  /** Web 用户系统 V1：本地账号注册，密码只在服务端 hash 后存储。 */
+  r.post('/register', (req, res) => {
+    const body = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>
+    const username = typeof body.username === 'string' ? body.username : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+    const nickname = typeof body.nickname === 'string' ? body.nickname : ''
+    const user = registerLocal(store, username, password, nickname)
+    res.status(201).json({ token: issueToken(user), user })
+  })
+
+  /** 登录失败统一返回相同文案，避免暴露用户名是否存在。 */
+  r.post('/login', (req, res) => {
+    const body = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>
+    const username = typeof body.username === 'string' ? body.username : ''
+    const password = typeof body.password === 'string' ? body.password : ''
+    const user = loginLocal(store, username, password)
+    res.json({ token: issueToken(user), user })
+  })
+
   r.post('/dev-login', (req, res) => {
     if (!cfg.devAuthEnabled) {
       res.status(403).json({ error: 'DEV_AUTH_DISABLED', message: '开发登录已关闭,请使用正式认证方式' })
@@ -22,8 +44,7 @@ export function authRoutes(store: Store, cfg: AppConfig): Router {
     const body = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>
     const nickname = typeof body.nickname === 'string' ? body.nickname : ''
     const user = loginDev(store, nickname)
-    const token = signToken({ sub: user.id, nickname: user.nickname, provider: user.authProvider }, cfg.jwtSecret, cfg.jwtExpiresDays)
-    res.json({ token, user })
+    res.json({ token: issueToken(user), user })
   })
 
   r.post('/wechat', (req, res, next) => {
@@ -31,8 +52,7 @@ export function authRoutes(store: Store, cfg: AppConfig): Router {
     const code = typeof body.code === 'string' ? body.code : ''
     loginWithWechat(store, cfg, code)
       .then((user) => {
-        const token = signToken({ sub: user.id, nickname: user.nickname, provider: user.authProvider }, cfg.jwtSecret, cfg.jwtExpiresDays)
-        res.json({ token, user })
+        res.json({ token: issueToken(user), user })
       })
       .catch(next)
   })

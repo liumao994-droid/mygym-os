@@ -1,11 +1,11 @@
 import { create } from 'zustand'
-import { setActiveUser } from '@/db/db'
+import { setActiveUser, setAppState } from '@/db/db'
 import type { User } from '@/db/models'
 import { api, clearStoredAuth, isApiError, loadStoredAuth, storeAuth } from '@/services/api'
 
 /**
- * 认证状态(开发阶段使用 dev 登录;生产环境由服务端提供微信等认证方式,
- * 前端只面向「拿到 token + User」这一统一契约,认证方式变化不影响业务层)。
+ * 认证状态：Web V1 使用用户名 / 密码；前端只面向「拿到 token + User」的统一契约，
+ * 后续增加微信、邮箱或手机号认证时无需改变业务数据层。
  *
  * dbEpoch:用户切换会导致本地数据库实例切换,App 树以它为 key 重挂载,
  * 让所有 useLiveQuery 订阅迁移到新的 Dexie 实例。
@@ -18,7 +18,8 @@ interface AuthStore {
   status: AuthStatus
   dbEpoch: number
   hydrate: () => Promise<void>
-  loginWithNickname: (nickname: string) => Promise<void>
+  register: (username: string, password: string, nickname: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -40,6 +41,7 @@ export const useAuth = create<AuthStore>((set) => ({
         storeAuth({ token: stored.token, user })
       }
       setActiveUser(user.id)
+      await setAppState('nickname', user.nickname)
       set({ user, status: 'loggedIn', dbEpoch: 1 })
     } catch (e) {
       if (isApiError(e, 'UNAUTHORIZED') || (isApiError(e) && e.status === 401)) {
@@ -55,16 +57,24 @@ export const useAuth = create<AuthStore>((set) => ({
     }
   },
 
-  loginWithNickname: async (nickname) => {
-    const name = nickname.trim()
-    if (!name) throw new Error('请输入昵称')
-    const res = await api.devLogin(name)
+  register: async (username, password, nickname) => {
+    const res = await api.register(username.trim(), password, nickname.trim())
     storeAuth(res)
     setActiveUser(res.user.id)
+    await setAppState('nickname', res.user.nickname)
+    set({ user: res.user, status: 'loggedIn', dbEpoch: Date.now() })
+  },
+
+  login: async (username, password) => {
+    const res = await api.login(username.trim(), password)
+    storeAuth(res)
+    setActiveUser(res.user.id)
+    await setAppState('nickname', res.user.nickname)
     set({ user: res.user, status: 'loggedIn', dbEpoch: Date.now() })
   },
 
   logout: () => {
+    void api.logout().catch(() => undefined)
     clearStoredAuth()
     setActiveUser(null)
     set({ user: null, status: 'loggedOut', dbEpoch: Date.now() })

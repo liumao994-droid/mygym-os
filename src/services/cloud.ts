@@ -11,7 +11,7 @@ function requireActiveUser(): void {
 export async function adoptLegacyData(): Promise<Record<string, number>> {
   requireActiveUser()
   const legacy = getLegacyDb()
-  const [exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, activitySessions] = await Promise.all([
+  const [exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, activitySessions, appState] = await Promise.all([
     legacy.exercises.toArray(),
     legacy.sessions.toArray(),
     legacy.workoutExercises.toArray(),
@@ -21,13 +21,26 @@ export async function adoptLegacyData(): Promise<Record<string, number>> {
     legacy.personalRecords.toArray(),
     legacy.prEvents.toArray(),
     legacy.activitySessions.toArray(),
+    legacy.appState.toArray(),
   ])
   const backup: BackupFile = {
     app: 'MyGymOS',
     schema: 2,
     exportedAt: new Date().toISOString(),
     unit: 'kg',
-    data: { exercises, sessions, workoutExercises, sets, dailyStatuses, templates, personalRecords, prEvents, activitySessions, appState: [] },
+    data: {
+      exercises,
+      sessions,
+      workoutExercises,
+      sets,
+      dailyStatuses,
+      templates,
+      personalRecords,
+      prEvents,
+      activitySessions,
+      // 主题/单位等设备设置随账号迁移；账号昵称和旧 AI 配置不覆盖新身份。
+      appState: appState.filter((row) => row.key !== 'aiConfig' && row.key !== 'nickname'),
+    },
   }
   await importBackup(backup, 'merge')
   const counts = { exercises: exercises.length, sessions: sessions.length, workoutExercises: workoutExercises.length, sets: sets.length, dailyStatuses: dailyStatuses.length, templates: templates.length, personalRecords: personalRecords.length, prEvents: prEvents.length, activitySessions: activitySessions.length }

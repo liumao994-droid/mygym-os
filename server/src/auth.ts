@@ -56,6 +56,7 @@ export function verifyToken(token: string, secret: string): JwtPayload | null {
 
 export interface AuthedUser {
   id: string
+  username?: string
   nickname: string
   avatar: string | null
   authProvider: string
@@ -103,7 +104,7 @@ export function requireAuth(store: Store, cfg: AppConfig) {
       next(new HttpError(401, 'UNAUTHORIZED', '登录状态无效或已过期'))
       return
     }
-    const row = store.get('SELECT id, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE id = ?', payload.sub)
+    const row = store.get('SELECT id, username, nickname, avatar, auth_provider, status, created_at, updated_at FROM users WHERE id = ?', payload.sub)
     if (!row) {
       next(new HttpError(401, 'UNAUTHORIZED', '用户不存在'))
       return
@@ -116,6 +117,7 @@ export function requireAuth(store: Store, cfg: AppConfig) {
       userId: row.id as string,
       user: {
         id: row.id as string,
+        username: typeof row.username === 'string' ? row.username : undefined,
         nickname: row.nickname as string,
         avatar: (row.avatar as string | null) ?? null,
         authProvider: row.auth_provider as string,

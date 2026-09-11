@@ -1,9 +1,12 @@
 import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
-import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { useSettings } from '@/store/settings'
+import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { toast, useSettings } from '@/store/settings'
 import { useAuth } from '@/store/auth'
 import { bootstrapDB } from '@/services/io'
+import { getAppState, getLegacyDataCounts, setAppState } from '@/db/db'
+import { adoptLegacyData } from '@/services/cloud'
 import { BottomNav } from '@/components/BottomNav'
+import { Button, Sheet } from '@/components/ui/basic'
 import HomePage from '@/pages/HomePage'
 import TrainPage from '@/pages/TrainPage'
 import ActiveWorkoutPage from '@/pages/ActiveWorkoutPage'
@@ -20,6 +23,7 @@ import { BadmintonPage, BadmintonFormPage } from '@/pages/BadmintonPages'
 import { SwimmingPage, SwimmingFormPage } from '@/pages/SwimmingPages'
 import { TennisPage, TennisFormPage } from '@/pages/TennisPages'
 import { VolleyballDetailPage, VolleyballFormPage, VolleyballPage } from '@/pages/VolleyballPages'
+import AuthPage from '@/pages/AuthPage'
 
 /** 全局错误边界:数据/渲染异常不让整个页面白屏 */
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -58,6 +62,73 @@ function ScrollToTop() {
   return null
 }
 
+function RequireAuth() {
+  const status = useAuth((s) => s.status)
+  const location = useLocation()
+  if (status !== 'loggedIn') return <Navigate to="/login" replace state={{ from: location }} />
+  return <Outlet />
+}
+
+function GuestOnly() {
+  const status = useAuth((s) => s.status)
+  return status === 'loggedIn' ? <Navigate to="/" replace /> : <Outlet />
+}
+
+function LegacyDataPrompt() {
+  const userId = useAuth((s) => s.user?.id)
+  const [open, setOpen] = useState(false)
+  const [counts, setCounts] = useState<{ sessions: number; sets: number; activities: number } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!userId) return
+    void Promise.all([getAppState<string>('legacyDataDecision', ''), getLegacyDataCounts()]).then(([decision, legacy]) => {
+      if (!decision && (legacy.sessions > 0 || legacy.sets > 0 || legacy.activities > 0)) {
+        setCounts(legacy)
+        setOpen(true)
+      }
+    })
+  }, [userId])
+
+  async function decide(adopt: boolean) {
+    setBusy(true)
+    try {
+      if (adopt) {
+        await adoptLegacyData()
+        await useSettings.getState().hydrate()
+        toast('历史本机数据已绑定到当前账号')
+      }
+      await setAppState('legacyDataDecision', adopt ? 'adopted' : 'skipped')
+      setOpen(false)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '迁移失败，旧数据未被删除', 'error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={() => void decide(false)} title="检测到本机历史数据">
+      <div className="space-y-4 px-1 pb-2 pt-1">
+        <p className="text-sm leading-relaxed text-ink-2">这台设备有未绑定账号的旧资料。是否复制并绑定到当前账号？原始资料会保留，不会被删除。</p>
+        {counts && <p className="rounded-2xl bg-surface-2 px-3 py-2.5 text-sm text-ink-3">{counts.sessions} 次力量训练 · {counts.sets} 组 · {counts.activities} 条运动记录</p>}
+        <Button block loading={busy} onClick={() => void decide(true)}>绑定历史数据</Button>
+        <Button variant="secondary" block disabled={busy} onClick={() => void decide(false)}>暂不绑定，创建空账号</Button>
+      </div>
+    </Sheet>
+  )
+}
+
+function AccountLayout() {
+  return (
+    <>
+      <Outlet />
+      <BottomNav />
+      <LegacyDataPrompt />
+    </>
+  )
+}
+
 export default function App() {
   const hydrateSettings = useSettings((s) => s.hydrate)
   const hydrateAuth = useAuth((s) => s.hydrate)
@@ -93,35 +164,42 @@ export default function App() {
       <HashRouter key={dbEpoch}>
         <ScrollToTop />
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/train" element={<TrainPage />} />
-          <Route path="/workout/:id" element={<ActiveWorkoutPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/me" element={<MePage />} />
-          <Route path="/exercises" element={<ExercisesPage />} />
-          <Route path="/exercise/:id" element={<ExerciseDetailPage />} />
-          <Route path="/templates" element={<TemplatesPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/report/month/:key" element={<MonthlyReportPage />} />
-          <Route path="/report/year/:year" element={<YearlyReportPage />} />
-          <Route path="/milestones" element={<MilestonesPage />} />
-          <Route path="/badminton" element={<BadmintonPage />} />
-          <Route path="/badminton/new" element={<BadmintonFormPage />} />
-          <Route path="/badminton/:id" element={<BadmintonFormPage />} />
-          <Route path="/badminton/:id/edit" element={<BadmintonFormPage />} />
-          <Route path="/swimming" element={<SwimmingPage />} />
-          <Route path="/swimming/new" element={<SwimmingFormPage />} />
-          <Route path="/swimming/:id/edit" element={<SwimmingFormPage />} />
-          <Route path="/tennis" element={<TennisPage />} />
-          <Route path="/tennis/new" element={<TennisFormPage />} />
-          <Route path="/tennis/:id/edit" element={<TennisFormPage />} />
-          <Route path="/volleyball" element={<VolleyballPage />} />
-          <Route path="/volleyball/new" element={<VolleyballFormPage />} />
-          <Route path="/volleyball/:id" element={<VolleyballDetailPage />} />
-          <Route path="/volleyball/:id/edit" element={<VolleyballFormPage />} />
+          <Route element={<GuestOnly />}>
+            <Route path="/login" element={<AuthPage mode="login" />} />
+            <Route path="/register" element={<AuthPage mode="register" />} />
+          </Route>
+          <Route element={<RequireAuth />}>
+            <Route element={<AccountLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/train" element={<TrainPage />} />
+              <Route path="/workout/:id" element={<ActiveWorkoutPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/me" element={<MePage />} />
+              <Route path="/exercises" element={<ExercisesPage />} />
+              <Route path="/exercise/:id" element={<ExerciseDetailPage />} />
+              <Route path="/templates" element={<TemplatesPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/report/month/:key" element={<MonthlyReportPage />} />
+              <Route path="/report/year/:year" element={<YearlyReportPage />} />
+              <Route path="/milestones" element={<MilestonesPage />} />
+              <Route path="/badminton" element={<BadmintonPage />} />
+              <Route path="/badminton/new" element={<BadmintonFormPage />} />
+              <Route path="/badminton/:id" element={<BadmintonFormPage />} />
+              <Route path="/badminton/:id/edit" element={<BadmintonFormPage />} />
+              <Route path="/swimming" element={<SwimmingPage />} />
+              <Route path="/swimming/new" element={<SwimmingFormPage />} />
+              <Route path="/swimming/:id/edit" element={<SwimmingFormPage />} />
+              <Route path="/tennis" element={<TennisPage />} />
+              <Route path="/tennis/new" element={<TennisFormPage />} />
+              <Route path="/tennis/:id/edit" element={<TennisFormPage />} />
+              <Route path="/volleyball" element={<VolleyballPage />} />
+              <Route path="/volleyball/new" element={<VolleyballFormPage />} />
+              <Route path="/volleyball/:id" element={<VolleyballDetailPage />} />
+              <Route path="/volleyball/:id/edit" element={<VolleyballFormPage />} />
+            </Route>
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <BottomNav />
       </HashRouter>
     </ErrorBoundary>
   )
