@@ -424,8 +424,14 @@ export function VolleyballPage() {
 export function VolleyballDetailPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
-  const session = useLiveQuery(() => getActivity(id), [id], undefined)
-  if (session === undefined) return <div className="min-h-dvh bg-bg p-6 text-ink-3">加载中…</div>
+  const LOADING = useMemo(() => Symbol('loading'), [])
+  const session = useLiveQuery(
+    () => getActivity(id),
+    [id],
+    LOADING as unknown as ActivitySession | undefined,
+  ) as ActivitySession | undefined | typeof LOADING
+  if (session === LOADING) return <div className="min-h-dvh bg-bg p-6 text-ink-3">加载中…</div>
+  if (!session || typeof session === 'symbol') return <div className="min-h-dvh bg-bg p-6 text-ink-3">记录不存在。</div>
   if (session.sport !== 'volleyball') return <div className="min-h-dvh bg-bg p-6 text-ink-3">记录不存在。</div>
   const tally = volleyballSetTally(session.volleyballSets)
   const result = resultLabel(session)
