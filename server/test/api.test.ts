@@ -567,7 +567,7 @@ test('导入:旧版无 userId 的备份 → 绑定导入者,幂等重跑', async
     exportedAt: '2025-01-01T00:00:00.000Z',
     unit: 'kg',
     data: {
-      exercises: [{ id: 'ex-old-1', name: '旧动作', bodyPart: 'back', equipment: 'machine', defaultWeightType: 'weight', isCustom: 1, createdAt: 1, updatedAt: 1 }],
+      exercises: [{ id: 'ex-old-1', name: '旧动作', bodyPart: 'back', equipment: 'machine', defaultWeightType: 'weight', isCustom: false, createdAt: 1, updatedAt: 1 }],
       sessions: [{ id: 'sess-old-1', date: '2025-01-02', status: 'completed', bodyParts: ['back'], startedAt: 1, createdAt: 1, updatedAt: 1 }],
       workoutExercises: [{ id: 'we-old-1', sessionId: 'sess-old-1', exerciseId: 'ex-old-1', order: 0, createdAt: 1 }],
       sets: [{ id: 'set-old-1', workoutExerciseId: 'we-old-1', sessionId: 'sess-old-1', exerciseId: 'ex-old-1', setNumber: 1, weight: 50, reps: 10, weightType: 'weight', date: '2025-01-02', createdAt: 1 }],

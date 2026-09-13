@@ -30,6 +30,16 @@ const IMPORTABLE_TABLES = [
 
 const MAX_ROWS_PER_COLLECTION = 100000
 
+function normalizeImportRow(table: string, row: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...row }
+  for (const [key, field] of Object.entries(TABLES[table].fields)) {
+    if (field.type === 'int' && typeof normalized[key] === 'boolean') {
+      normalized[key] = normalized[key] ? 1 : 0
+    }
+  }
+  return normalized
+}
+
 export interface ImportOutcome {
   imported: Record<string, number>
   skippedForeign: number
@@ -85,12 +95,14 @@ export function syncRoutes(store: Store, _cfg: AppConfig): Router {
             outcome.skippedInvalid++
             continue
           }
-          const rec = raw as Record<string, unknown>
+          const incoming = raw as Record<string, unknown>
           // 越权防护:记录声明归属别人 → 拒绝导入
-          if (typeof rec.userId === 'string' && rec.userId && rec.userId !== userId) {
+          if (typeof incoming.userId === 'string' && incoming.userId && incoming.userId !== userId) {
             outcome.skippedForeign++
             continue
           }
+          // 历史本地备份中的布尔标记(isCustom/isDemo)兼容为 SQLite INTEGER。
+          const rec = normalizeImportRow(table, incoming)
           if (validateRow(table, rec, true)) {
             outcome.skippedInvalid++
             continue

@@ -201,7 +201,10 @@ export function ensureColumns(store: { db: { exec(sql: string): void; prepare(sq
 function toJson(type: FieldType, value: unknown): SqliteValue {
   if (value === undefined || value === null) return null
   if (type === 'json') return JSON.stringify(value)
-  if (type === 'int') return typeof value === 'number' ? Math.round(value) : (value as number)
+  if (type === 'int') {
+    if (typeof value === 'boolean') return value ? 1 : 0
+    return typeof value === 'number' ? Math.round(value) : (value as number)
+  }
   if (type === 'real') return typeof value === 'number' ? value : Number(value)
   return String(value)
 }
