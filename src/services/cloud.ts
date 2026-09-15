@@ -111,11 +111,41 @@ export async function syncToCloud(): Promise<ImportResponse> {
   return api.importData(backup, auth)
 }
 
-/** 从当前账号的云端资料合并到本机，不清空本地记录。 */
+/** 以当前账号的服务端快照重建本机缓存。 */
 export async function restoreFromCloud() {
   const auth = currentAuthSnapshot()
   await verifyCloudIdentity(auth)
   const backup = await api.exportData(auth)
   assertSnapshotCurrent(auth)
-  return importBackup(backup, 'merge')
+  // 服务端是 Source of Truth；replace 能让服务端删除同步反映到本机缓存。
+  return importBackup(backup, 'replace')
+}
+
+const SERVER_SOURCE_MIGRATION_KEY = 'serverSourceMigrationV1'
+let refreshPromise: Promise<void> | null = null
+let lastRefreshAt = 0
+
+/** 首次升级先上传现有账号库；上传成功前绝不清理本地数据。 */
+export async function initializeServerCache(): Promise<void> {
+  requireActiveUser()
+  const migrated = await getAppState<boolean>(SERVER_SOURCE_MIGRATION_KEY, false)
+  if (!migrated) {
+    await syncToCloud()
+    await restoreFromCloud()
+    await setAppState(SERVER_SOURCE_MIGRATION_KEY, true)
+    lastRefreshAt = Date.now()
+    return
+  }
+  await refreshServerCache(true)
+}
+
+/** 单飞 + 节流的前台刷新，供路由切换和窗口重新获得焦点时调用。 */
+export async function refreshServerCache(force = false): Promise<void> {
+  if (!activeUserId) return
+  if (!force && Date.now() - lastRefreshAt < 5000) return
+  if (refreshPromise) return refreshPromise
+  refreshPromise = restoreFromCloud()
+    .then(() => { lastRefreshAt = Date.now() })
+    .finally(() => { refreshPromise = null })
+  return refreshPromise
 }

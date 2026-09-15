@@ -5,6 +5,7 @@ import { requireAuth, authOf } from '../auth.js'
 import { TABLES, rowToModel, validateRow, modelToRow } from '../db/tables.js'
 import { upsertOwned } from './helpers.js'
 import { HttpError } from '../auth.js'
+import { resetUserData } from '../services/users.js'
 
 /**
  * 云端数据导入/导出(迁移与备份共用):
@@ -127,6 +128,31 @@ export function syncRoutes(store: Store, _cfg: AppConfig): Router {
     })
 
     res.json(outcome)
+  })
+
+  r.delete('/demo', (req, res) => {
+    const { userId } = authOf(req)
+    store.transaction(() => {
+      const demoIds = store.all('SELECT id FROM sessions WHERE user_id = ? AND is_demo = 1', userId).map((row) => String(row.id))
+      for (const id of demoIds) {
+        store.run('DELETE FROM sets WHERE user_id = ? AND session_id = ?', userId, id)
+        store.run('DELETE FROM workout_exercises WHERE user_id = ? AND session_id = ?', userId, id)
+        store.run('DELETE FROM personal_records WHERE user_id = ? AND session_id = ?', userId, id)
+      }
+      store.run('DELETE FROM sessions WHERE user_id = ? AND is_demo = 1', userId)
+      store.run('DELETE FROM daily_statuses WHERE user_id = ? AND is_demo = 1', userId)
+      store.run('DELETE FROM templates WHERE user_id = ? AND is_demo = 1', userId)
+      store.run('DELETE FROM pr_events WHERE user_id = ? AND is_demo = 1', userId)
+      store.run('DELETE FROM activity_sessions WHERE user_id = ? AND is_demo = 1', userId)
+    })
+    res.json({ ok: true })
+  })
+
+  r.delete('/reset', (req, res) => {
+    const { userId } = authOf(req)
+    resetUserData(store, userId)
+    const exercises = store.all('SELECT * FROM exercises WHERE user_id = ?', userId).map((row) => rowToModel('exercises', row))
+    res.json({ ok: true, exercises })
   })
 
   return r

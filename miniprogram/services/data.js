@@ -1,6 +1,19 @@
 'use strict'
 
 const http = require('../utils/http.js')
+const session = require('../utils/session.js')
+
+const getCache = new Map()
+let revision = 0
+
+function cacheKey(path, params) {
+  return `${session.getToken() || 'anonymous'}|${path}|${JSON.stringify(params || {})}`
+}
+
+function clearReadCache() {
+  getCache.clear()
+  revision += 1
+}
 
 /**
  * 数据访问层:全部走后端 /api(requireAuth)。
@@ -8,11 +21,27 @@ const http = require('../utils/http.js')
  */
 
 function get(path, params, extra) {
-  return http.request(Object.assign({ path, method: 'GET', data: params || {} }, extra))
+  const key = cacheKey(path, params)
+  const cached = getCache.get(key)
+  // 只合并并发中的相同请求；完成后立即释放，避免另一端写入后读到旧快照。
+  if (cached && cached.promise) return cached.promise
+  const promise = http.request(Object.assign({ path, method: 'GET', data: params || {} }, extra))
+    .then((value) => {
+      getCache.delete(key)
+      return value
+    })
+    .catch((error) => {
+      getCache.delete(key)
+      throw error
+    })
+  getCache.set(key, { promise })
+  return promise
 }
 
-function write(method, path, body, extra) {
-  return http.request(Object.assign({ path, method, data: body || {}, loading: true }, extra))
+async function write(method, path, body, extra) {
+  const result = await http.request(Object.assign({ path, method, data: body || {}, loading: true }, extra))
+  clearReadCache()
+  return result
 }
 
 /* ---------------- 力量训练 ---------------- */
@@ -154,11 +183,11 @@ async function deleteActivity(id) {
 /* ---------------- 云端全量备份(与 Web JSON 同构) ---------------- */
 
 async function exportBackup() {
-  return http.request({ path: '/data/export', timeout: 60000, loading: true, loadingText: '导出中' })
+  return get('/data/export', undefined, { timeout: 60000, loading: true, loadingText: '导出中' })
 }
 
 async function importBackup(backup) {
-  return http.request({
+  const result = await http.request({
     path: '/data/import',
     method: 'POST',
     data: backup,
@@ -166,7 +195,11 @@ async function importBackup(backup) {
     loading: true,
     loadingText: '导入中'
   })
+  clearReadCache()
+  return result
 }
+
+function getRevision() { return revision }
 
 module.exports = {
   listSessions,
@@ -196,5 +229,7 @@ module.exports = {
   patchActivity,
   deleteActivity,
   exportBackup,
-  importBackup
+  importBackup,
+  clearReadCache,
+  getRevision
 }

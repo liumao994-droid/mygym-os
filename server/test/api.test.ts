@@ -183,6 +183,7 @@ test('health 探测无需登录', async () => {
 test('生产配置:强制关闭开发登录且拒绝通配 CORS', () => {
   const production = loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'production-secret', ALLOWED_ORIGINS: 'https://app.example.com', DEV_AUTH_ENABLED: 'true' })
   assert.equal(production.devAuthEnabled, false)
+  assert.equal(production.dbFile, '/data/mygym.db')
   assert.throws(() => loadConfig({ NODE_ENV: 'production', JWT_SECRET: 'production-secret', ALLOWED_ORIGINS: '*' }), /ALLOWED_ORIGINS/)
 })
 
@@ -319,6 +320,142 @@ test('微信登录:code 无效 / 微信上游错误映射为客户端可读错�
   const upstream = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'code-x' } })
   assert.equal(upstream.status, 502)
   assert.equal(upstream.json.error, 'WECHAT_UPSTREAM_ERROR')
+})
+
+test('微信绑定:local 账号绑定 openid 后微信登录回到同一用户', async () => {
+  const wxUrl = await startApp({
+    WECHAT_APP_ID: 'wx-test-app',
+    WECHAT_APP_SECRET: 'wechat-app-secret-test',
+    WECHAT_CODE2SESSION_URL: `http://127.0.0.1:${wechatMockPort}/sns/jscode2session`,
+  })
+  wechatBehavior.mode = 'ok'
+  wechatBehavior.openid = 'openid-bind-target'
+
+  // Web 端注册的 local 账号
+  const reg = await api(wxUrl, '/auth/register', {
+    method: 'POST',
+    body: { username: 'bind-user', password: 'bind-pass-123', nickname: '绑定用户' },
+  })
+  assert.equal(reg.status, 201)
+  const localToken = reg.json.token as string
+  const localUserId = reg.json.user.id as string
+
+  // 未登录绑定 → 401;空 code → 400
+  const noAuth = await api(wxUrl, '/auth/wechat/bind', { method: 'POST', body: { code: 'c1' } })
+  assert.equal(noAuth.status, 401)
+  const empty = await api(wxUrl, '/auth/wechat/bind', { method: 'POST', token: localToken, body: { code: '  ' } })
+  assert.equal(empty.status, 400)
+
+  // 绑定成功,且幂等:重复绑定同一 openid 仍是成功
+  const bind = await api(wxUrl, '/auth/wechat/bind', { method: 'POST', token: localToken, body: { code: 'bind-code-1' } })
+  assert.equal(bind.status, 200, JSON.stringify(bind.json))
+  const rebind = await api(wxUrl, '/auth/wechat/bind', { method: 'POST', token: localToken, body: { code: 'bind-code-2' } })
+  assert.equal(rebind.status, 200)
+
+  // 绑定后微信一键登录直接回到该 local 账号(不再新造 wechat 用户)
+  wechatBehavior.openid = 'openid-bind-target'
+  const wxLogin = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'bind-code-3' } })
+  assert.equal(wxLogin.status, 200)
+  assert.equal(wxLogin.json.user.id, localUserId)
+  assert.equal(wxLogin.json.user.authProvider, 'local')
+
+  // 该 openid 已绑定其他用户 → 其他用户绑定被拒 409
+  const other = await api(wxUrl, '/auth/register', {
+    method: 'POST',
+    body: { username: 'bind-user-b', password: 'bind-pass-456', nickname: '绑定用户B' },
+  })
+  assert.equal(other.status, 201)
+  const conflict = await api(wxUrl, '/auth/wechat/bind', { method: 'POST', token: other.json.token, body: { code: 'bind-code-4' } })
+  assert.equal(conflict.status, 409)
+  assert.equal(conflict.json.error, 'WECHAT_ALREADY_BOUND')
+
+  // 数据跟随账号:local 账号创建的数据,微信登录后可见
+  const now = Date.now()
+  const created = await api(wxUrl, '/sessions', {
+    method: 'POST',
+    token: localToken,
+    body: { id: 'bind-session-1', date: '2026-09-15', status: 'completed', bodyParts: ['legs'], title: '绑定后可见', startedAt: now, createdAt: now, updatedAt: now },
+  })
+  assert.equal(created.status, 201)
+  const afterLogin = await api(wxUrl, '/sessions', { token: wxLogin.json.token })
+  assert.equal(afterLogin.status, 200)
+  assert.equal(afterLogin.json.sessions.length, 1)
+  assert.equal(afterLogin.json.sessions[0].id, 'bind-session-1')
+
+  // 小程序 token 编辑 → Web token 可见；Web token 删除 → 小程序 token 同步消失。
+  const wxPatch = await api(wxUrl, '/sessions/bind-session-1', { method: 'PATCH', token: wxLogin.json.token, body: { notes: '微信已编辑' } })
+  assert.equal(wxPatch.status, 200)
+  const webRead = await api(wxUrl, '/sessions/bind-session-1', { token: localToken })
+  assert.equal(webRead.json.session.notes, '微信已编辑')
+
+  for (const sport of ['badminton', 'swimming', 'tennis', 'volleyball']) {
+    const id = `cross-${sport}`
+    const madeByMini = await api(wxUrl, '/activities', {
+      method: 'POST', token: wxLogin.json.token,
+      body: { id, sport, date: '2026-09-15', durationMin: 45, createdAt: now, updatedAt: now },
+    })
+    assert.equal(madeByMini.status, 201, sport)
+    const seenByWeb = await api(wxUrl, `/activities/${id}`, { token: localToken })
+    assert.equal(seenByWeb.status, 200, sport)
+    const editedByWeb = await api(wxUrl, `/activities/${id}`, { method: 'PATCH', token: localToken, body: { notes: `${sport}-web-edit` } })
+    assert.equal(editedByWeb.status, 200, sport)
+    const seenByMini = await api(wxUrl, `/activities/${id}`, { token: wxLogin.json.token })
+    assert.equal(seenByMini.json.activity.notes, `${sport}-web-edit`, sport)
+    const deletedByWeb = await api(wxUrl, `/activities/${id}`, { method: 'DELETE', token: localToken })
+    assert.equal(deletedByWeb.status, 200, sport)
+    assert.equal((await api(wxUrl, `/activities/${id}`, { token: wxLogin.json.token })).status, 404, sport)
+  }
+
+  assert.equal((await api(wxUrl, '/sessions/bind-session-1', { method: 'DELETE', token: localToken })).status, 200)
+  assert.equal((await api(wxUrl, '/sessions/bind-session-1', { token: wxLogin.json.token })).status, 404)
+})
+
+test('微信绑定:已有微信临时账号的数据安全并入 local 账号', async () => {
+  const wxUrl = await startApp({
+    WECHAT_APP_ID: 'wx-test-app',
+    WECHAT_APP_SECRET: 'wechat-app-secret-test',
+    WECHAT_CODE2SESSION_URL: `http://127.0.0.1:${wechatMockPort}/sns/jscode2session`,
+  })
+  wechatBehavior.mode = 'ok'
+  wechatBehavior.openid = 'openid-with-existing-data'
+
+  const oldWx = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'old-wx-login' } })
+  assert.equal(oldWx.status, 200)
+  const now = Date.now()
+  const oldSession = await api(wxUrl, '/sessions', {
+    method: 'POST',
+    token: oldWx.json.token,
+    body: { id: 'wx-old-session', date: '2026-09-14', status: 'completed', bodyParts: ['back'], startedAt: now, createdAt: now, updatedAt: now },
+  })
+  assert.equal(oldSession.status, 201)
+  const oldActivity = await api(wxUrl, '/activities', {
+    method: 'POST',
+    token: oldWx.json.token,
+    body: { id: 'wx-old-swim', sport: 'swimming', date: '2026-09-14', distanceM: 1000, createdAt: now, updatedAt: now },
+  })
+  assert.equal(oldActivity.status, 201)
+
+  const target = await api(wxUrl, '/auth/register', {
+    method: 'POST',
+    body: { username: 'merge-target', password: 'merge-pass-123', nickname: '迁移目标' },
+  })
+  assert.equal(target.status, 201)
+  const bind = await api(wxUrl, '/auth/wechat/bind', { method: 'POST', token: target.json.token, body: { code: 'bind-and-migrate' } })
+  assert.equal(bind.status, 200)
+  assert.equal(bind.json.migrated, true)
+
+  const sessions = await api(wxUrl, '/sessions', { token: target.json.token })
+  const activities = await api(wxUrl, '/activities', { token: target.json.token })
+  const exercises = await api(wxUrl, '/exercises', { token: target.json.token })
+  assert.ok(sessions.json.sessions.some((row: { id: string }) => row.id === 'wx-old-session'))
+  assert.ok(activities.json.activities.some((row: { id: string }) => row.id === 'wx-old-swim'))
+  assert.equal(exercises.json.exercises.length, 34, '两套默认动作应安全去重并保留引用')
+
+  const oldTokenAfterMerge = await api(wxUrl, '/auth/me', { token: oldWx.json.token })
+  assert.equal(oldTokenAfterMerge.status, 403)
+  const nextWx = await api(wxUrl, '/auth/wechat', { method: 'POST', body: { code: 'new-wx-login' } })
+  assert.equal(nextWx.status, 200)
+  assert.equal(nextWx.json.user.id, target.json.user.id)
 })
 
 test('未登录访问数据接口 401', async () => {
@@ -467,6 +604,22 @@ test('运动记录:双用户隔离 + 越权 404', async () => {
   assert.equal(delA.status, 200)
 })
 
+test('运动记录:拒绝非法日期、负数、小数比分和极端数值', async () => {
+  const base = { sport: 'swimming', date: '2026-09-04' }
+  const invalidRows = [
+    { ...base, date: '2026-02-30' },
+    { ...base, durationMin: -1 },
+    { ...base, distanceM: 0 },
+    { ...base, laps: 1.5 },
+    { ...base, calories: Number.MAX_VALUE },
+    { sport: 'tennis', date: '2026-09-04', sets: [{ a: 6.5, b: 4 }] },
+    { sport: 'running', date: '2026-09-04' },
+  ]
+  for (const body of invalidRows) {
+    const result = await api(url, '/activities', { method: 'POST', token: A.token, body })
+    assert.equal(result.status, 400, JSON.stringify(body))
+  }
+})
 
 test('排球记录:专业数据、逐局比分可完整保存与更新', async () => {
   const created = await api(url, '/activities', {

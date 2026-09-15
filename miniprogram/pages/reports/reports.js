@@ -11,7 +11,7 @@ function reportFor(backup,month){
   sessions.forEach((s)=>(s.bodyParts||[]).forEach((p)=>{partCounts[p]=(partCounts[p]||0)+1}))
   const parts=Object.keys(partCounts).map((p)=>({id:p,label:BODY_PART_LABELS[p]||p,count:partCounts[p]})).sort((a,b)=>b.count-a.count)
   const volume=Math.round(sets.reduce((n,s)=>s.weight>0&&s.reps>0?n+s.weight*s.reps:n,0))
-  const sportCount={badminton:0,swimming:0,tennis:0};activities.forEach((a)=>{if(sportCount[a.sport]!==undefined)sportCount[a.sport]++})
+  const sportCount={badminton:0,swimming:0,tennis:0,volleyball:0};activities.forEach((a)=>{if(sportCount[a.sport]!==undefined)sportCount[a.sport]++})
   return{month,label:`${Number(month.slice(5))}月`,sessions:sessions.length,sets:sets.length,volume,activities:activities.length,rests:rests.length,parts,sportCount,minutes:activities.reduce((n,a)=>n+Number(a.durationMin||0),0)}
 }
 

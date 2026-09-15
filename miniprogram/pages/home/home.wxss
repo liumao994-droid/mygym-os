@@ -156,12 +156,25 @@
 }
 
 .sport-card {
+  position: relative;
   min-height: 206rpx;
   padding: 24rpx;
   border: 1rpx solid #e2e6ec;
   border-radius: 16rpx;
   background: #fff;
   box-shadow: 0 8rpx 20rpx rgba(23, 32, 51, 0.04);
+}
+
+.sport-easter-egg {
+  position: absolute;
+  top: 18rpx;
+  right: 58rpx;
+  color: rgba(23, 32, 51, 0.56);
+  font-size: 20rpx;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  transform: rotate(-6deg);
 }
 
 .sport-card:active {
@@ -222,6 +235,11 @@
 .sport-yellow .sport-icon,
 .recent-symbol.sport-yellow {
   background: #fff4ce;
+}
+
+.sport-clay .sport-icon,
+.recent-symbol.sport-clay {
+  background: #f7e9df;
 }
 
 .insight-card {

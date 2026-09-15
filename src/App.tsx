@@ -4,7 +4,7 @@ import { toast, useSettings } from '@/store/settings'
 import { subscribeAuthStorageSync, useAuth } from '@/store/auth'
 import { bootstrapDB } from '@/services/io'
 import { getAppState, getLegacyDataCounts, setAppState } from '@/db/db'
-import { adoptLegacyData } from '@/services/cloud'
+import { initializeServerCache, migrateLegacyToCloud, refreshServerCache } from '@/services/cloud'
 import { BottomNav } from '@/components/BottomNav'
 import { Button, Sheet } from '@/components/ui/basic'
 import HomePage from '@/pages/HomePage'
@@ -94,7 +94,7 @@ function LegacyDataPrompt() {
     setBusy(true)
     try {
       if (adopt) {
-        await adoptLegacyData()
+        await migrateLegacyToCloud()
         await useSettings.getState().hydrate()
         toast('历史本机数据已绑定到当前账号')
       }
@@ -120,6 +120,21 @@ function LegacyDataPrompt() {
 }
 
 function AccountLayout() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    void refreshServerCache().catch((error) => console.warn('云端缓存刷新失败', error))
+  }, [pathname])
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void refreshServerCache(true).catch((error) => console.warn('云端缓存刷新失败', error))
+    }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', refresh)
+    }
+  }, [])
   return (
     <>
       <Outlet />
@@ -145,7 +160,12 @@ export default function App() {
   useEffect(() => {
     if (authStatus === 'unknown') return
     setReady(false)
-    Promise.all([hydrateSettings(), bootstrapDB()])
+    const initialize = async () => {
+      await hydrateSettings()
+      if (authStatus === 'loggedIn') await initializeServerCache()
+      await bootstrapDB()
+    }
+    initialize()
       .catch((e) => console.error('启动失败', e))
       .finally(() => setReady(true))
   }, [authStatus, dbEpoch, hydrateSettings])

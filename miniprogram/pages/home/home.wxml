@@ -36,6 +36,7 @@
 
   <view class="sport-grid">
     <view class="sport-card sport-{{item.tone}}" wx:for="{{sports}}" wx:key="id" data-sport="{{item.id}}" bindtap="onSportTap">
+      <text class="sport-easter-egg" wx:if="{{item.easterEgg}}">{{item.easterEgg}}</text>
       <view class="sport-top">
         <view class="sport-icon">{{item.emoji}}</view>
         <view class="sport-arrow">›</view>
@@ -81,5 +82,4 @@
     <text class="account-dot">·</text>
     <text bindtap="onLogout">退出登录</text>
   </view>
-  <bottom-nav selected="home" />
 </view>

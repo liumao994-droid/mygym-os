@@ -68,7 +68,12 @@ Page({
   },
 
   onUnload() {
+    this.clearTimer()
+  },
+
+  clearTimer() {
     if (this.timer) clearInterval(this.timer)
+    this.timer = null
   },
 
   noop() {},
@@ -117,16 +122,17 @@ Page({
       this.setData({
         session,
         items,
+        exercises: decorated,
         readOnly: session.status === 'completed',
         totalSets,
         totalVolume: Math.round(totalVolume),
         feelLabel,
         loading: false
       })
+      this.clearTimer()
       if (session.status === 'active') {
         this.elapsed = fmtElapsed(session.startedAt)
         this.setData({ elapsed: this.elapsed })
-        if (this.timer) clearInterval(this.timer)
         this.timer = setInterval(() => {
           this.setData({ elapsed: fmtElapsed(session.startedAt) })
         }, 1000)
@@ -146,18 +152,8 @@ Page({
 
   async onOpenPicker() {
     if (this.data.busy) return
-    this.setData({ busy: true, pickerOpen: true })
-    try {
-      const exercises = await data.listExercises()
-      const decorated = exercises.map((e) =>
-        Object.assign({}, e, { bodyPartLabel: BODY_PART_LABELS[e.bodyPart] || e.bodyPart })
-      )
-      this.setData({ exercises: decorated, pickerBodyPart: '', pickerSearch: '', pickableExercises: decorated })
-    } catch (e) {
-      wx.showToast({ title: e.message || '加载动作失败', icon: 'none' })
-    } finally {
-      this.setData({ busy: false })
-    }
+    const exercises = this.data.exercises
+    this.setData({ pickerOpen: true, pickerBodyPart: '', pickerSearch: '', pickableExercises: exercises })
   },
 
   onClosePicker() {
@@ -165,25 +161,23 @@ Page({
   },
 
   onPickerSearch(e) {
-    this.setData({ pickerSearch: e.detail.value })
-    this.refreshPickerList()
+    const pickerSearch = e.detail.value
+    this.setData({ pickerSearch, pickableExercises: this.filteredExercises(pickerSearch, this.data.pickerBodyPart) })
   },
 
   onPickerBodyPart(e) {
     const value = e.currentTarget.dataset.value
-    this.setData({ pickerBodyPart: this.data.pickerBodyPart === value ? '' : value })
-    this.refreshPickerList()
+    const pickerBodyPart = this.data.pickerBodyPart === value ? '' : value
+    this.setData({ pickerBodyPart, pickableExercises: this.filteredExercises(this.data.pickerSearch, pickerBodyPart) })
   },
 
-  refreshPickerList() {
-    const q = this.data.pickerSearch.trim().toLowerCase()
-    const part = this.data.pickerBodyPart
-    const list = this.data.exercises.filter((e) => {
+  filteredExercises(search, part) {
+    const q = String(search || '').trim().toLowerCase()
+    return this.data.exercises.filter((e) => {
       if (part && e.bodyPart !== part) return false
       if (q && !e.name.toLowerCase().includes(q)) return false
       return true
     })
-    this.setData({ pickableExercises: list })
   },
 
   async onPickExercise(e) {

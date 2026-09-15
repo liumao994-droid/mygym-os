@@ -7,8 +7,36 @@ const { todayStr } = require('../../models/contracts.js')
 const SPORT_META = {
   badminton: { label: '羽毛球', icon: '🏸', kicker: 'BADMINTON', tone: 'coral' },
   swimming: { label: '游泳', icon: '🏊', kicker: 'SWIMMING', tone: 'cyan' },
-  tennis: { label: '网球', icon: '🎾', kicker: 'TENNIS', tone: 'yellow' }
+  tennis: { label: '网球', icon: '🎾', kicker: 'TENNIS', tone: 'yellow' },
+  volleyball: { label: '排球', icon: '🏐', kicker: 'VOLLEYBALL', tone: 'clay' }
 }
+
+const VB_SESSION_TYPES = [
+  { value: 'training', label: '日常训练' },
+  { value: 'casual', label: '自由打球' },
+  { value: 'scrimmage', label: '对抗赛' },
+  { value: 'official', label: '正式比赛' }
+]
+
+const VB_POSITIONS = [
+  { value: '', label: '不限' },
+  { value: 'oh', label: '主攻 OH' },
+  { value: 'mb', label: '副攻 MB' },
+  { value: 'opp', label: '接应 OPP' },
+  { value: 'setter', label: '二传 S' },
+  { value: 'libero', label: '自由人 L' },
+  { value: 'none', label: '无固定位置' },
+  { value: 'other', label: '其他' }
+]
+
+const VB_STAT_GROUPS = [
+  { key: 'serve', label: '发球', fields: [{ key: 'attempts', label: '发球次数' }, { key: 'aces', label: 'ACE' }, { key: 'errors', label: '发球失误' }] },
+  { key: 'attack', label: '进攻', fields: [{ key: 'attempts', label: '进攻次数' }, { key: 'points', label: '进攻得分' }, { key: 'errors', label: '进攻失误' }, { key: 'blocked', label: '被拦' }] },
+  { key: 'block', label: '拦网', fields: [{ key: 'points', label: '拦网得分' }, { key: 'effective', label: '有效拦网' }] },
+  { key: 'reception', label: '一传', fields: [{ key: 'attempts', label: '一传次数' }, { key: 'perfect', label: '一传到位' }, { key: 'errors', label: '一传失误' }] },
+  { key: 'dig', label: '防守', fields: [{ key: 'attempts', label: '防守次数' }, { key: 'successful', label: '有效防守' }] },
+  { key: 'set', label: '二传', fields: [{ key: 'attempts', label: '二传次数' }, { key: 'successful', label: '有效二传' }] }
+]
 
 const STROKES = [
   { value: '', label: '不限' },
@@ -54,6 +82,10 @@ function timeText(timestamp) {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+function blankVolleyballStats() {
+  return { serve: {}, attack: {}, block: {}, reception: {}, dig: {}, set: {} }
+}
+
 function emptyForm(sport) {
   return {
     sport,
@@ -85,6 +117,10 @@ function emptyForm(sport) {
     ,trainingFocus: ''
     ,technique: blankTechnique()
     ,fitness: blankFitness()
+    ,vbSessionType: 'training'
+    ,vbPosition: ''
+    ,vbSets: []
+    ,vbStats: blankVolleyballStats()
   }
 }
 
@@ -100,6 +136,14 @@ function summary(item, sport) {
     if (item.distanceM) bits.push(`${item.distanceM} 米`)
     if (item.durationMin) bits.push(`${item.durationMin} 分钟`)
     return bits.join(' · ') || item.venue || '游泳记录'
+  }
+  if (sport === 'volleyball') {
+    const sets = Array.isArray(item.volleyballSets) ? item.volleyballSets : []
+    const won = sets.filter((s) => Number(s.ourScore) > Number(s.opponentScore)).length
+    const lost = sets.filter((s) => Number(s.ourScore) < Number(s.opponentScore)).length
+    if (sets.length) return `${won} 胜 · ${lost} 负局`
+    if (item.durationMin) return `${item.durationMin} 分钟`
+    return item.venue || SPORT_META[sport].label
   }
   const score = item.score || {}
   if (score.gamesWon !== undefined || score.gamesLost !== undefined) {
@@ -128,6 +172,77 @@ function paceLabel(form) {
   return `${min}:${String(sec).padStart(2, '0')} / 100m`
 }
 
+function validCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+}
+
+function numberError(value, label, options) {
+  if (value === '' || value === null || value === undefined) return ''
+  const number = Number(value)
+  const opts = options || {}
+  if (!Number.isFinite(number)) return `${label}必须是数字`
+  if (opts.integer && !Number.isInteger(number)) return `${label}必须是整数`
+  if (number < (opts.min === undefined ? 0 : opts.min) || number > (opts.max || 10000000)) return `${label}超出允许范围`
+  return ''
+}
+
+function validateForm(form, sport) {
+  if (!validCalendarDate(form.date)) return '请选择有效日期'
+  let error = numberError(form.durationMin, '时长', { min: Number.EPSILON, max: 10080 })
+  if (error) return error
+  if (sport === 'swimming') {
+    const rules = [
+      [form.distanceM, '距离', { min: Number.EPSILON }],
+      [form.poolLengthM, '泳池长度', { min: Number.EPSILON, max: 10000 }],
+      [form.laps, '趟数', { min: 1, max: 1000000, integer: true }],
+      [form.calories, '卡路里', { min: Number.EPSILON }]
+    ]
+    for (const rule of rules) { error = numberError(...rule); if (error) return error }
+  } else {
+    for (const [value, label] of [[form.gamesWon, '胜场'], [form.gamesLost, '负场'], [form.gamesTotal, '总场数'], [form.pointsTotal, '总得分']]) {
+      error = numberError(value, label, { min: 0, max: 1000000, integer: true })
+      if (error) return error
+    }
+  }
+  if (sport === 'tennis') {
+    for (const set of form.sets) {
+      for (const value of [set.a, set.b]) {
+        error = numberError(value, '逐盘比分', { min: 0, max: 99, integer: true })
+        if (error) return error
+      }
+    }
+    for (const value of Object.values(form.technique || {})) {
+      error = numberError(value, '技术统计', { min: 0, max: 10000000, integer: true })
+      if (error) return error
+    }
+    const fitnessRules = [
+      [form.fitness.runMinutes, '跑动时间', { min: Number.EPSILON, max: 10080 }],
+      [form.fitness.runDistanceM, '跑动距离', { min: Number.EPSILON }],
+      [form.fitness.avgHr, '平均心率', { min: 1, max: 300, integer: true }],
+      [form.fitness.maxHr, '最大心率', { min: 1, max: 300, integer: true }]
+    ]
+    for (const rule of fitnessRules) { error = numberError(...rule); if (error) return error }
+  }
+  if (sport === 'volleyball') {
+    for (const set of form.vbSets) {
+      for (const value of [set.our, set.their]) {
+        error = numberError(value, '逐局比分', { min: 0, max: 999, integer: true })
+        if (error) return error
+      }
+    }
+    for (const group of Object.values(form.vbStats || {})) {
+      for (const value of Object.values(group)) {
+        error = numberError(value, '技术统计', { min: 0, max: 1000000, integer: true })
+        if (error) return error
+      }
+    }
+  }
+  return ''
+}
+
 Page({
   data: {
     sport: 'badminton',
@@ -145,6 +260,11 @@ Page({
     trainingTypeOptions: TRAINING_TYPES.map((label) => ({ label, selected: false })),
     rpeOptions: RPE_OPTIONS,
     paceLabel: '填写时长与距离后自动算出',
+    vbSessionTypes: VB_SESSION_TYPES,
+    vbSessionTypeIndex: 0,
+    vbPositions: VB_POSITIONS,
+    vbPositionIndex: 0,
+    vbStatGroups: VB_STAT_GROUPS,
     loading: false,
     busy: false
   },
@@ -199,13 +319,16 @@ Page({
 
   onField(e) {
     const field = e.currentTarget.dataset.field
-    this.setData({ [`form.${field}`]: e.detail.value })
-    if (field === 'distanceM' || field === 'durationMin') this.setData({ paceLabel: paceLabel(this.data.form) })
+    const value = e.detail.value
+    const patch = { [`form.${field}`]: value }
+    const nextForm = Object.assign({}, this.data.form, { [field]: value })
+    if (field === 'distanceM' || field === 'durationMin') patch.paceLabel = paceLabel(nextForm)
     if (this.data.sport === 'badminton' && (field === 'gamesWon' || field === 'gamesLost')) {
-      const won = Number(this.data.form.gamesWon)
-      const lost = Number(this.data.form.gamesLost)
-      if (Number.isFinite(won) && Number.isFinite(lost)) this.setData({ 'form.gamesTotal': String(won + lost) })
+      const won = Number(nextForm.gamesWon)
+      const lost = Number(nextForm.gamesLost)
+      if (Number.isFinite(won) && Number.isFinite(lost)) patch['form.gamesTotal'] = String(won + lost)
     }
+    this.setData(patch)
   },
 
   onDateChange(e) {
@@ -221,7 +344,10 @@ Page({
   },
 
   onRpe(e) { this.setData({ 'form.rpe': Number(e.currentTarget.dataset.value) }) },
-  onDistanceUnit(e) { this.setData({ 'form.distanceUnit': e.currentTarget.dataset.value }); this.setData({ paceLabel: paceLabel(this.data.form) }) },
+  onDistanceUnit(e) {
+    const distanceUnit = e.currentTarget.dataset.value
+    this.setData({ 'form.distanceUnit': distanceUnit, paceLabel: paceLabel(Object.assign({}, this.data.form, { distanceUnit })) })
+  },
 
   onMatchChange(e) {
     this.setData({ 'form.isMatch': e.detail.value })
@@ -294,6 +420,39 @@ Page({
     })
   },
 
+  onVbSessionType(e) {
+    const index = Number(e.detail.value)
+    this.setData({ vbSessionTypeIndex: index, 'form.vbSessionType': VB_SESSION_TYPES[index].value })
+  },
+
+  onVbPosition(e) {
+    const index = Number(e.detail.value)
+    this.setData({ vbPositionIndex: index, 'form.vbPosition': VB_POSITIONS[index].value })
+  },
+
+  onAddVbSet() {
+    this.setData({ 'form.vbSets': this.data.form.vbSets.concat([{ our: '', their: '' }]) })
+  },
+
+  onRemoveVbSet(e) {
+    const sets = this.data.form.vbSets.slice()
+    sets.splice(Number(e.currentTarget.dataset.index), 1)
+    this.setData({ 'form.vbSets': sets })
+  },
+
+  onVbSetField(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const side = e.currentTarget.dataset.side
+    const sets = this.data.form.vbSets.map((set, i) => i === index ? Object.assign({}, set, { [side]: e.detail.value }) : set)
+    this.setData({ 'form.vbSets': sets })
+  },
+
+  onVbStatField(e) {
+    const group = e.currentTarget.dataset.group
+    const field = e.currentTarget.dataset.field
+    this.setData({ [`form.vbStats.${group}.${field}`]: e.detail.value })
+  },
+
   async onEdit(e) {
     return this.openEdit(e.currentTarget.dataset.id)
   },
@@ -328,7 +487,11 @@ Page({
         trainingTypes: item.trainingTypes || [],
         trainingFocus: item.trainingFocus || '',
         technique: Object.assign(blankTechnique(), item.technique || {}),
-        fitness: Object.assign(blankFitness(), item.fitness || {})
+        fitness: Object.assign(blankFitness(), item.fitness || {}),
+        vbSessionType: item.volleyballSessionType || 'training',
+        vbPosition: item.volleyballPosition || '',
+        vbSets: (item.volleyballSets || []).map((s) => ({ our: s.ourScore ?? '', their: s.opponentScore ?? '' })),
+        vbStats: Object.assign(blankVolleyballStats(), item.volleyballStats || {})
       })
       this.setData({
         formOpen: true,
@@ -336,6 +499,8 @@ Page({
         strokeIndex,
         surfaceIndex,
         natureIndex,
+        vbSessionTypeIndex: Math.max(0, VB_SESSION_TYPES.findIndex((x) => x.value === (item.volleyballSessionType || 'training'))),
+        vbPositionIndex: Math.max(0, VB_POSITIONS.findIndex((x) => x.value === (item.volleyballPosition || ''))),
         form,
         paceLabel: paceLabel(form),
         trainingTypeOptions: TRAINING_TYPES.map((label) => ({ label, selected: form.trainingTypes.includes(label) }))
@@ -365,6 +530,20 @@ Page({
         poolLengthM: numberOrUndefined(f.poolLengthM),
         laps: numberOrUndefined(f.laps),
         calories: numberOrUndefined(f.calories)
+      })
+    } else if (this.data.sport === 'volleyball') {
+      const stats = {}
+      Object.keys(f.vbStats || {}).forEach((group) => {
+        const cleaned = cleanNumberObject(f.vbStats[group])
+        if (cleaned) stats[group] = cleaned
+      })
+      Object.assign(payload, {
+        volleyballSessionType: f.vbSessionType || undefined,
+        volleyballPosition: f.vbPosition || undefined,
+        volleyballSets: f.vbSets
+          .map((s) => ({ ourScore: numberOrUndefined(s.our), opponentScore: numberOrUndefined(s.their) }))
+          .filter((s) => s.ourScore !== undefined || s.opponentScore !== undefined),
+        volleyballStats: Object.keys(stats).length ? stats : undefined
       })
     } else {
       const won = numberOrUndefined(f.gamesWon)
@@ -400,8 +579,9 @@ Page({
 
   async onSave() {
     if (this.data.busy) return
-    if (!this.data.form.date) {
-      wx.showToast({ title: '请选择日期', icon: 'none' })
+    const formError = validateForm(this.data.form, this.data.sport)
+    if (formError) {
+      wx.showToast({ title: formError, icon: 'none' })
       return
     }
     const rpe = numberOrUndefined(this.data.form.rpe)

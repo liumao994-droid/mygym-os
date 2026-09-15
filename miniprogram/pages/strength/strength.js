@@ -31,6 +31,8 @@ Page({
       wx.reLaunch({ url: '/pages/login/login' })
       return
     }
+    const tabBar = this.getTabBar && this.getTabBar()
+    if (tabBar) tabBar.setData({ selected: 'strength' })
     this.load()
   },
 
@@ -50,6 +52,8 @@ Page({
           durationLabel: r.durationSec ? `${r.durationSec} 秒` : ''
         }))
       })
+      this.lastLoadedAt = Date.now()
+      this.loadedRevision = data.getRevision()
     } catch (e) {
       wx.showToast({ title: e.message || '加载失败', icon: 'none' })
     } finally {

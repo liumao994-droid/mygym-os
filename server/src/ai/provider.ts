@@ -46,6 +46,8 @@ export async function chatCompletion(p: ChatParams): Promise<{ content: string; 
           { role: 'system', content: p.system },
           { role: 'user', content: p.user },
         ],
+        // 训练月报是结构化摘要任务，低推理足以保证质量并显著减少隐藏推理 Token。
+        reasoning_effort: 'low',
         temperature: p.temperature ?? 0.4,
       }),
       signal: controller.signal,

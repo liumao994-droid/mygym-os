@@ -19,6 +19,7 @@
 .hero-coral { background: #ffdfd6; }
 .hero-cyan { background: #d8f1f4; }
 .hero-yellow { background: #f7e8a7; }
+.hero-clay { background: #f4e4d8; }
 
 .hero-kicker,
 .sheet-kicker {
@@ -293,6 +294,14 @@
   border-radius: 11rpx;
   background: #f4f6f8;
   font-size: 25rpx;
+}
+
+.notes-easter-egg {
+  margin-top: 10rpx;
+  color: rgba(124, 133, 147, 0.7);
+  font-size: 18rpx;
+  font-style: italic;
+  text-align: right;
 }
 
 .save-btn {

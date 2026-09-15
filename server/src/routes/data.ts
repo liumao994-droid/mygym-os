@@ -113,6 +113,11 @@ export function dataRoutes(store: Store, _cfg: AppConfig): Router {
     res.json({ ok: true })
   })
 
+  r.patch('/workout-exercises/:id', (req, res) => {
+    const { userId } = authOf(req)
+    res.json({ workoutExercise: patchOwned(store, 'workoutExercises', req.params.id, req.body, userId) })
+  })
+
   r.post('/sessions/:id/sets', (req, res) => {
     const { userId } = authOf(req)
     const session = ownRow(store, 'sessions', req.params.id, userId)

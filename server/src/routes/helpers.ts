@@ -27,7 +27,9 @@ export function upsertOwned(
   const { cols, values } = modelToRow(table, model, userId)
   const pkCol = def.pk === 'id' ? 'id' : 'date'
   const pkVal = def.pk === 'id' ? String(model.id) : String(model.date)
-  const existing = store.get(`SELECT user_id FROM ${def.sqlName} WHERE ${pkCol} = ?`, pkVal)
+  const existing = def.pk === 'date'
+    ? store.get(`SELECT user_id FROM ${def.sqlName} WHERE ${pkCol} = ? AND user_id = ?`, pkVal, userId)
+    : store.get(`SELECT user_id FROM ${def.sqlName} WHERE ${pkCol} = ?`, pkVal)
   if (!existing) {
     const idCols = def.pk === 'id' ? ['id'] : []
     const allCols = [...idCols, ...cols]

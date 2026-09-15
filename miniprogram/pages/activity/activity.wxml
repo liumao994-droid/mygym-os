@@ -61,7 +61,27 @@
 
         <view class="form-section" wx:if="{{sport === 'tennis'}}"><view class="section-label">训练模式（可选）</view><view class="label">训练类型（可多选）</view><view class="training-types"><view wx:for="{{trainingTypeOptions}}" wx:key="label" class="training-chip {{item.selected ? 'on' : ''}}" data-label="{{item.label}}" bindtap="onTrainingType">{{item.label}}</view></view><view class="field"><view class="label">今天主要训练内容</view><textarea class="textarea short" value="{{form.trainingFocus}}" data-field="trainingFocus" bindinput="onField" placeholder="如：二发稳定性、反手斜线"></textarea></view></view>
 
-        <view class="form-section"><view class="section-label">其他（全部可选）</view><view class="field"><view class="label">场地</view><input class="input" value="{{form.venue}}" data-field="venue" bindinput="onField" placeholder="如：天河体育中心"/></view><view class="field" wx:if="{{sport === 'badminton'}}"><view class="label">对手 / 搭档</view><input class="input" value="{{form.partners}}" data-field="partners" bindinput="onField" placeholder="可选"/></view><view class="field"><view class="label">主观强度 RPE（1-10）</view><view class="rpe-row"><view wx:for="{{rpeOptions}}" wx:key="*this" class="rpe {{form.rpe === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onRpe">{{item}}</view></view></view><view class="field"><view class="label">备注</view><textarea class="textarea" value="{{form.notes}}" data-field="notes" bindinput="onField" placeholder="今天感觉如何？记录值得记住的细节。"></textarea></view></view>
+        <view class="form-section" wx:if="{{sport === 'volleyball'}}">
+          <view class="section-label">对局</view>
+          <view class="field-grid"><view class="field"><view class="label">性质</view><picker range="{{vbSessionTypes}}" range-key="label" value="{{vbSessionTypeIndex}}" bindchange="onVbSessionType"><view class="picker-value">{{vbSessionTypes[vbSessionTypeIndex].label}} <text>›</text></view></picker></view><view class="field"><view class="label">位置（可选）</view><picker range="{{vbPositions}}" range-key="label" value="{{vbPositionIndex}}" bindchange="onVbPosition"><view class="picker-value">{{vbPositions[vbPositionIndex].label}} <text>›</text></view></picker></view></view>
+          <view class="set-head"><view><view class="label">每一局比分</view><view class="helper">逐局记录会保存在云端</view></view><button bindtap="onAddVbSet">＋ 添加一局</button></view>
+          <view class="tennis-set" wx:for="{{form.vbSets}}" wx:key="index"><text class="set-label">第 {{index + 1}} 局</text><input type="number" value="{{item.our}}" data-index="{{index}}" data-side="our" bindinput="onVbSetField" placeholder="我方"/><text>:</text><input type="number" value="{{item.their}}" data-index="{{index}}" data-side="their" bindinput="onVbSetField" placeholder="对方"/><text class="remove" data-index="{{index}}" bindtap="onRemoveVbSet">×</text></view>
+        </view>
+
+        <view class="form-section" wx:if="{{sport === 'volleyball'}}">
+          <view class="section-label">技术统计</view><view class="helper block-helper">全部可选，手动填写；留空即不计入统计。</view>
+          <block wx:for="{{vbStatGroups}}" wx:key="key" wx:for-item="group">
+            <view class="stat-group-title">{{group.label}}</view>
+            <view class="tech-grid">
+              <view class="field" wx:for="{{group.fields}}" wx:for-item="stat" wx:key="key">
+                <view class="label">{{stat.label}}</view>
+                <input class="input" type="number" value="{{form.vbStats[group.key][stat.key]}}" data-group="{{group.key}}" data-field="{{stat.key}}" bindinput="onVbStatField"/>
+              </view>
+            </view>
+          </block>
+        </view>
+
+        <view class="form-section"><view class="section-label">其他（全部可选）</view><view class="field"><view class="label">场地</view><input class="input" value="{{form.venue}}" data-field="venue" bindinput="onField" placeholder="如：天河体育中心"/></view><view class="field" wx:if="{{sport === 'badminton'}}"><view class="label">对手 / 搭档</view><input class="input" value="{{form.partners}}" data-field="partners" bindinput="onField" placeholder="可选"/></view><view class="field"><view class="label">主观强度 RPE（1-10）</view><view class="rpe-row"><view wx:for="{{rpeOptions}}" wx:key="*this" class="rpe {{form.rpe === item ? 'on' : ''}}" data-value="{{item}}" bindtap="onRpe">{{item}}</view></view></view><view class="field"><view class="label">备注</view><textarea class="textarea" value="{{form.notes}}" data-field="notes" bindinput="onField" placeholder="今天感觉如何？记录值得记住的细节。"></textarea><view class="notes-easter-egg" wx:if="{{sport === 'tennis'}}">今天有没有想三毛?</view></view></view>
         <button class="save-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onSave">{{editingId ? '保存修改' : '保存记录'}}</button><view class="form-tip">除日期外全部可选，随手记录也可以保存。</view><view class="form-bottom"></view>
       </scroll-view>
     </view>

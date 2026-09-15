@@ -64,7 +64,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     isProduction: isProd,
     port: intEnv(env, 'PORT', 8787),
     host: env.HOST ?? '127.0.0.1',
-    dbFile: env.DB_FILE ?? 'server-data/mygym.db',
+    // Railway 生产实例默认使用挂载卷 /data；本地开发仍写 server-data。
+    dbFile: env.DB_FILE ?? (isProd ? '/data/mygym.db' : 'server-data/mygym.db'),
     jwtSecret,
     jwtExpiresDays: intEnv(env, 'JWT_EXPIRES_DAYS', 30),
     // dev 登录只能用于非生产环境；即使生产环境误设为 true 也强制关闭。

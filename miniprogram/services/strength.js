@@ -68,9 +68,11 @@ async function removeExercise(workoutExerciseId) {
 /** 一次批量添加 count 组。weightType=bodyweight 时忽略重量;assisted 转服务端负值语义。 */
 async function addSetGroup(sessionId, workoutExerciseId, input) {
   const { weightType, reps, count, date, baseSetNumber } = input
-  const n = Math.max(1, Math.floor(Number(count) || 1))
-  const r = Math.floor(Number(reps) || 0)
-  if (r <= 0) throw new Error('次数必须大于 0')
+  const rawCount = count === '' || count === undefined ? 1 : Number(count)
+  const n = Math.floor(rawCount)
+  const r = Number(reps)
+  if (!Number.isInteger(n) || n < 1 || n > 50) throw new Error('组数必须是 1-50 的整数')
+  if (!Number.isInteger(r) || r < 1 || r > 100000) throw new Error('次数必须是有效正整数')
   const now = Date.now()
   for (let i = 0; i < n; i++) {
     let weight = 0

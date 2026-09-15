@@ -1,4 +1,14 @@
-import type { BackupFile, User } from '@/db/models'
+import type {
+  ActivitySession,
+  BackupFile,
+  DailyStatus,
+  Exercise,
+  User,
+  WorkoutExercise,
+  WorkoutSession,
+  WorkoutSet,
+  WorkoutTemplate,
+} from '@/db/models'
 import { getAppState, setAppState } from '@/db/db'
 
 /**
@@ -33,15 +43,16 @@ export const API_BASE_STATE_KEY = 'apiBaseUrl'
 
 /** 开发模式下未配置时的默认后端地址(本地 MyGym API 服务) */
 const DEV_DEFAULT_API_BASE = 'http://localhost:8787'
+const CLOUD_API_BASE = 'https://mygym-os-production.up.railway.app'
 
 let apiBaseCache: string | null = null
 
 /** 解析规则:appState 手动覆盖 > 构建时环境变量 > 开发默认(localhost) > 同源 */
 export async function getApiBase(): Promise<string> {
   if (apiBaseCache !== null) return apiBaseCache
-  const override = await getAppState<string>(API_BASE_STATE_KEY, '')
+  const override = import.meta.env?.DEV ? await getAppState<string>(API_BASE_STATE_KEY, '') : ''
   apiBaseCache = normalizeBase(
-    override.trim() || (import.meta.env?.VITE_API_BASE_URL as string | undefined) || (import.meta.env?.DEV ? DEV_DEFAULT_API_BASE : ''),
+    override.trim() || (import.meta.env?.VITE_API_BASE_URL as string | undefined) || (import.meta.env?.DEV ? DEV_DEFAULT_API_BASE : CLOUD_API_BASE),
   )
   return apiBaseCache
 }
@@ -171,6 +182,74 @@ export const api = {
   },
   importData(backup: BackupFile, auth: StoredAuth | null = loadStoredAuth()): Promise<ImportResponse> {
     return request('/data/import', { method: 'POST', body: JSON.stringify(backup) }, 120000, auth)
+  },
+  clearDemoData(): Promise<{ ok: boolean }> {
+    return request('/data/demo', { method: 'DELETE' })
+  },
+  resetData(): Promise<{ ok: boolean; exercises: Exercise[] }> {
+    return request('/data/reset', { method: 'DELETE' })
+  },
+
+  /* ---- 服务端权威 CRUD；Web 的 IndexedDB 只缓存这些响应 ---- */
+  createSession(payload: WorkoutSession): Promise<{ session: WorkoutSession }> {
+    return request('/sessions', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  patchSession(id: string, patch: Partial<WorkoutSession>): Promise<{ session: WorkoutSession }> {
+    return request(`/sessions/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  deleteSession(id: string): Promise<{ ok: boolean }> {
+    return request(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  addWorkoutExercise(sessionId: string, payload: WorkoutExercise): Promise<{ workoutExercise: WorkoutExercise }> {
+    return request(`/sessions/${encodeURIComponent(sessionId)}/exercises`, { method: 'POST', body: JSON.stringify(payload) })
+  },
+  patchWorkoutExercise(id: string, patch: Partial<WorkoutExercise>): Promise<{ workoutExercise: WorkoutExercise }> {
+    return request(`/workout-exercises/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  deleteWorkoutExercise(id: string): Promise<{ ok: boolean }> {
+    return request(`/workout-exercises/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  addSet(sessionId: string, payload: WorkoutSet): Promise<{ set: WorkoutSet }> {
+    return request(`/sessions/${encodeURIComponent(sessionId)}/sets`, { method: 'POST', body: JSON.stringify(payload) })
+  },
+  patchSet(id: string, patch: Partial<WorkoutSet>): Promise<{ set: WorkoutSet }> {
+    return request(`/sets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  deleteSet(id: string): Promise<{ ok: boolean }> {
+    return request(`/sets/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  putDailyStatus(date: string, payload: DailyStatus): Promise<{ dailyStatus: DailyStatus }> {
+    return request(`/daily-statuses/${encodeURIComponent(date)}`, { method: 'PUT', body: JSON.stringify(payload) })
+  },
+  deleteDailyStatus(date: string): Promise<{ ok: boolean }> {
+    return request(`/daily-statuses/${encodeURIComponent(date)}`, { method: 'DELETE' })
+  },
+  createExercise(payload: Exercise): Promise<{ exercise: Exercise }> {
+    return request('/exercises', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  patchExercise(id: string, patch: Partial<Exercise>): Promise<{ exercise: Exercise }> {
+    return request(`/exercises/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  deleteExercise(id: string): Promise<{ ok: boolean }> {
+    return request(`/exercises/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  createTemplate(payload: WorkoutTemplate): Promise<{ template: WorkoutTemplate }> {
+    return request('/templates', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  patchTemplate(id: string, patch: Partial<WorkoutTemplate>): Promise<{ template: WorkoutTemplate }> {
+    return request(`/templates/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  deleteTemplate(id: string): Promise<{ ok: boolean }> {
+    return request(`/templates/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  },
+  createActivity(payload: ActivitySession): Promise<{ activity: ActivitySession }> {
+    return request('/activities', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  patchActivity(id: string, patch: Partial<ActivitySession>): Promise<{ activity: ActivitySession }> {
+    return request(`/activities/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(patch) })
+  },
+  deleteActivity(id: string): Promise<{ ok: boolean }> {
+    return request(`/activities/${encodeURIComponent(id)}`, { method: 'DELETE' })
   },
 
   /* ---- AI(后端代理:验证身份 → 限额 → 服务端持有 Key 调用 Provider) ---- */

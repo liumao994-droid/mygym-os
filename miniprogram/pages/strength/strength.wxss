@@ -336,6 +336,7 @@
 }
 
 .other-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 18rpx;
@@ -352,6 +353,17 @@
 .other-card > view > view:first-child { font-size: 25rpx; font-weight: 800; }
 .other-card > view > view:last-child { margin-top: 4rpx; color: #6f7784; font-size: 19rpx; }
 .other-card > text:last-child { color: #606b7b; font-size: 34rpx; }
+.other-card > .tennis-easter-egg {
+  position: absolute;
+  top: 12rpx;
+  right: 62rpx;
+  color: rgba(23, 32, 51, 0.56);
+  font-size: 20rpx;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 2rpx;
+  transform: rotate(-6deg);
+}
 
 .template-list { padding: 0 22rpx; border: 1rpx solid #e2e6ec; border-radius: 16rpx; background: #fff; }
 .template-row { display: flex; align-items: center; justify-content: space-between; min-height: 100rpx; border-bottom: 1rpx solid #edf0f3; }

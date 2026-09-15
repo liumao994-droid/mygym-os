@@ -128,6 +128,23 @@ function seedDefaultExercises(store: Store, userId: string, now: number): void {
   }
 }
 
+/** 清空当前用户业务数据并重新播种动作；账号、身份绑定和迁移快照不受影响。 */
+export function resetUserData(store: Store, userId: string): AuthedUser {
+  const user = getUserById(store, userId)
+  if (!user) throw new HttpError(404, 'NOT_FOUND', '用户不存在')
+  store.transaction(() => {
+    for (const table of [
+      'sets', 'workout_exercises', 'sessions', 'daily_statuses', 'templates',
+      'personal_records', 'pr_events', 'activity_sessions', 'exercises',
+      'ai_usage', 'ai_analyses', 'app_state',
+    ]) {
+      store.run(`DELETE FROM ${table} WHERE user_id = ?`, userId)
+    }
+    seedDefaultExercises(store, userId, Date.now())
+  })
+  return user
+}
+
 /**
  * dev/测试登录:按昵称查找或创建用户。
  * 这不是生产认证;DEV_AUTH_ENABLED=false 时上层路由会拒绝。
@@ -204,6 +221,145 @@ export async function wechatCode2Session(
     throw new HttpError(502, 'WECHAT_LOGIN_FAILED', '微信登录未返回有效身份')
   }
   return data
+}
+
+/**
+ * 微信绑定:已登录用户把当前微信 openid 关联到自己的账号。
+ * 绑定后 /auth/wechat 会直接返回该账号,实现「网页注册的账号在小程序微信一键登录」。
+ * 幂等:同一 openid 重复绑定同一用户直接成功;已绑定到其他用户则拒绝。
+ */
+export async function bindWechatIdentity(
+  store: Store,
+  cfg: AppConfig,
+  code: string,
+  userId: string,
+): Promise<{ openid: string; linked: boolean; migrated: boolean }> {
+  if (!wechatConfigured(cfg)) {
+    throw new HttpError(503, 'WECHAT_NOT_CONFIGURED', '服务端尚未配置微信登录(WECHAT_APP_ID / WECHAT_APP_SECRET)')
+  }
+  const trimmed = code.trim()
+  if (!trimmed || trimmed.length > 256) {
+    throw new HttpError(400, 'INVALID_CODE', '缺少有效的微信登录 code')
+  }
+  const session = await wechatCode2Session(cfg, trimmed)
+  const openid = session.openid as string
+  const identity = store.get(
+    "SELECT user_id FROM auth_identities WHERE provider = 'wechat' AND provider_id = ?",
+    openid,
+  )
+  if (identity) {
+    const sourceUserId = String(identity.user_id)
+    if (sourceUserId === userId) return { openid, linked: true, migrated: false }
+
+    const source = store.get('SELECT id, username, auth_provider, status FROM users WHERE id = ?', sourceUserId)
+    const target = store.get('SELECT id, username, auth_provider, status FROM users WHERE id = ?', userId)
+    // 只自动合并“微信首次登录自动生成、且没有本地账号密码”的临时账号。
+    // 已绑定其他正式账号时继续拒绝，避免静默接管。
+    if (!source || source.auth_provider !== 'wechat' || source.username || !target || target.status !== 'active') {
+      throw new HttpError(409, 'WECHAT_ALREADY_BOUND', '该微信已绑定其他 MyGym 账号')
+    }
+
+    migrateWechatOnlyUser(store, sourceUserId, userId, openid)
+    return { openid, linked: true, migrated: true }
+  }
+  store.run(
+    'INSERT INTO auth_identities (id, user_id, provider, provider_id, created_at) VALUES (?, ?, ?, ?, ?)',
+    newId(),
+    userId,
+    'wechat',
+    openid,
+    Date.now(),
+  )
+  return { openid, linked: true, migrated: false }
+}
+
+const OWNED_DATA_TABLES = [
+  'exercises', 'sessions', 'workout_exercises', 'sets', 'templates',
+  'personal_records', 'pr_events', 'activity_sessions', 'ai_analyses',
+] as const
+
+/**
+ * 将仅微信身份的临时账号安全并入已验证的正式账号。
+ * 迁移前保存完整快照；普通 id 主键数据原样搬迁，复合主键数据按无损规则合并。
+ */
+function migrateWechatOnlyUser(store: Store, sourceUserId: string, targetUserId: string, openid: string): void {
+  const snapshotTables = [...OWNED_DATA_TABLES, 'daily_statuses', 'ai_usage', 'app_state', 'auth_identities'] as const
+  const snapshot: Record<string, unknown[]> = {}
+  for (const table of snapshotTables) snapshot[table] = store.all(`SELECT * FROM ${table} WHERE user_id = ?`, sourceUserId)
+
+  store.transaction(() => {
+    const now = Date.now()
+    store.run(
+      'INSERT INTO account_merge_backups (id, source_user_id, target_user_id, provider, data_json, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      newId(), sourceUserId, targetUserId, 'wechat', JSON.stringify(snapshot), now,
+    )
+    mergeDuplicateDefaultExercises(store, sourceUserId, targetUserId)
+    for (const table of OWNED_DATA_TABLES) {
+      store.run(`UPDATE ${table} SET user_id = ? WHERE user_id = ?`, targetUserId, sourceUserId)
+    }
+    // 同一天只能有一个状态：正式账号已有值优先，微信旧值仍保存在迁移快照中。
+    store.run(
+      'INSERT OR IGNORE INTO daily_statuses (user_id, date, status, note, is_demo) SELECT ?, date, status, note, is_demo FROM daily_statuses WHERE user_id = ?',
+      targetUserId, sourceUserId,
+    )
+    store.run('DELETE FROM daily_statuses WHERE user_id = ?', sourceUserId)
+    // AI 次数按周期累加；设备状态以正式账号已有值优先。
+    for (const row of store.all('SELECT period_type, period, count FROM ai_usage WHERE user_id = ?', sourceUserId)) {
+      store.run(
+        `INSERT INTO ai_usage (user_id, period_type, period, count) VALUES (?, ?, ?, ?)
+         ON CONFLICT(user_id, period_type, period) DO UPDATE SET count = count + excluded.count`,
+        targetUserId, row.period_type, row.period, row.count,
+      )
+    }
+    store.run('DELETE FROM ai_usage WHERE user_id = ?', sourceUserId)
+    store.run(
+      'INSERT OR IGNORE INTO app_state (user_id, key, value, updated_at) SELECT ?, key, value, updated_at FROM app_state WHERE user_id = ?',
+      targetUserId, sourceUserId,
+    )
+    store.run('DELETE FROM app_state WHERE user_id = ?', sourceUserId)
+    store.run('UPDATE auth_identities SET user_id = ? WHERE user_id = ?', targetUserId, sourceUserId)
+    // 旧 JWT 立即失效；源账号保留用于审计/恢复，不删除任何用户记录。
+    store.run("UPDATE users SET status = 'disabled', updated_at = ? WHERE id = ?", now, sourceUserId)
+    const rebound = store.get("SELECT user_id FROM auth_identities WHERE provider = 'wechat' AND provider_id = ?", openid)
+    if (!rebound || String(rebound.user_id) !== targetUserId) throw new Error('微信身份迁移校验失败')
+  })
+}
+
+/** 合并两边重复的系统动作并重写引用，避免迁移后出现两套默认动作。 */
+function mergeDuplicateDefaultExercises(store: Store, sourceUserId: string, targetUserId: string): void {
+  const targets = new Map(
+    store.all('SELECT id, name, body_part FROM exercises WHERE user_id = ? AND is_custom = 0', targetUserId)
+      .map((row) => [`${String(row.name)}\u0000${String(row.body_part)}`, String(row.id)]),
+  )
+  const idMap = new Map<string, string>()
+  for (const row of store.all('SELECT id, name, body_part FROM exercises WHERE user_id = ? AND is_custom = 0', sourceUserId)) {
+    const targetId = targets.get(`${String(row.name)}\u0000${String(row.body_part)}`)
+    if (targetId && targetId !== String(row.id)) idMap.set(String(row.id), targetId)
+  }
+  if (!idMap.size) return
+
+  for (const [sourceId, targetId] of idMap) {
+    for (const table of ['workout_exercises', 'sets', 'personal_records', 'pr_events']) {
+      store.run(`UPDATE ${table} SET exercise_id = ? WHERE user_id = ? AND exercise_id = ?`, targetId, sourceUserId, sourceId)
+    }
+  }
+  for (const row of store.all('SELECT id, items FROM templates WHERE user_id = ?', sourceUserId)) {
+    try {
+      const items = JSON.parse(String(row.items)) as { exerciseId?: string }[]
+      let changed = false
+      for (const item of items) {
+        const next = item && item.exerciseId ? idMap.get(item.exerciseId) : undefined
+        if (next) {
+          item.exerciseId = next
+          changed = true
+        }
+      }
+      if (changed) store.run('UPDATE templates SET items = ? WHERE id = ? AND user_id = ?', JSON.stringify(items), row.id, sourceUserId)
+    } catch {
+      // 非法模板仍原样保存在迁移快照中；现有业务校验不会生成这种数据。
+    }
+  }
+  for (const sourceId of idMap.keys()) store.run('DELETE FROM exercises WHERE id = ? AND user_id = ?', sourceId, sourceUserId)
 }
 
 export function loginWithWechat(

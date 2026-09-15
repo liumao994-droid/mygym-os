@@ -49,6 +49,8 @@ Page({
       wx.reLaunch({ url: '/pages/login/login' })
       return
     }
+    const tabBar = this.getTabBar && this.getTabBar()
+    if (tabBar) tabBar.setData({ selected: 'me' })
     const settings = readSettings()
     this.setData(settings)
     this.load()
@@ -63,19 +65,23 @@ Page({
       const [user, backup, quota] = await Promise.all([auth.getMe(), data.exportBackup(), ai.quota().catch(() => null)])
       const d = backup.data || {}
       const completed = (d.sessions || []).filter((s) => s.status === 'completed')
-      const volume = (d.sets || []).reduce((sum, s) => s.weight > 0 && s.reps > 0 ? sum + s.weight * s.reps : sum, 0)
+      const completedIds = new Set(completed.map((s) => s.id))
+      const completedSets = (d.sets || []).filter((s) => completedIds.has(s.sessionId))
+      const volume = completedSets.reduce((sum, s) => s.weight > 0 && s.reps > 0 ? sum + s.weight * s.reps : sum, 0)
       this.setData({
         user,
         avatarChar: (user.nickname || 'M').slice(0, 1),
         quota,
         stats: {
           sessions: completed.length,
-          sets: (d.sets || []).length,
+          sets: completedSets.length,
           exercises: (d.exercises || []).filter((e) => !e.deletedAt).length,
           volume: Math.round(volume),
           activities: (d.activitySessions || []).length
         }
       })
+      this.lastLoadedAt = Date.now()
+      this.loadedRevision = data.getRevision()
     } catch (e) {
       wx.showToast({ title: e.message || '加载失败', icon: 'none' })
     } finally { this.setData({ loading: false }) }

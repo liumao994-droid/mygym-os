@@ -94,6 +94,44 @@
   font-weight: 800;
 }
 
+.account-form {
+  margin-top: 26rpx;
+}
+
+.account-login-btn {
+  width: 100%;
+  margin-top: 26rpx;
+  border-radius: 16rpx;
+  background: #172033;
+  color: #fff;
+  font-size: 30rpx;
+}
+
+.account-hint {
+  margin-top: 14rpx;
+  color: #9aa1ad;
+  font-size: 20rpx;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 28rpx;
+  color: #9aa1ad;
+  font-size: 20rpx;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1rpx;
+  background: #e4e8ee;
+}
+
 .wechat-btn {
   display: flex;
   align-items: center;
@@ -101,7 +139,7 @@
   gap: 16rpx;
   width: 100%;
   height: 96rpx;
-  margin-top: 34rpx;
+  margin-top: 24rpx;
   border-radius: 16rpx;
   background: #07c160;
   color: #fff;

@@ -1,0 +1,8 @@
+<view class="nav-shell">
+  <view class="nav-safe">
+    <view wx:for="{{items}}" wx:key="key" class="nav-item {{selected === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="onSelect">
+      <view class="nav-icon {{item.key === 'strength' ? 'train-icon' : ''}}">{{item.icon}}</view>
+      <view class="nav-label">{{item.label}}</view>
+    </view>
+  </view>
+</view>

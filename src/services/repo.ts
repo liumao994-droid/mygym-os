@@ -1,4 +1,4 @@
-import { db } from '@/db/db'
+import { activeUserId, db } from '@/db/db'
 import { DEFAULT_EXERCISES } from '@/db/defaults'
 import type {
   BodyPartId,
@@ -16,6 +16,7 @@ import type {
 import { BODY_PART_META, FEEL_LABEL } from '@/db/models'
 import { todayStr, uid } from '@/lib/util'
 import { rebuildPRsForExercise, rebuildAllPRs } from './pr'
+import { api } from './api'
 
 /**
  * 数据访问层:所有写操作的唯一入口。
@@ -30,6 +31,8 @@ export function sessionTitle(bodyParts: BodyPartId[]): string {
 
 /** 首次启动:写入默认动作库(事务内原子判断,防止并发双写) */
 export async function ensureDefaultExercises(): Promise<void> {
+  // 登录用户的默认动作由服务端播种；本地库只是缓存，不能自行制造云端不存在的数据。
+  if (activeUserId) return
   await db.transaction('rw', [db.exercises, db.appState], async () => {
     const seeded = await db.appState.get('defaultExercisesSeeded')
     if (seeded?.value === true) return
@@ -71,8 +74,9 @@ export async function startSession(
     createdAt: now,
     updatedAt: now,
   }
-  await db.sessions.put(session)
-  return session
+  const authoritative = activeUserId ? (await api.createSession(session)).session : session
+  await db.sessions.put(authoritative)
+  return authoritative
 }
 
 /** 复制上次训练:克隆最近一次已完成会话的结构与组数据,以「未完成」状态开始今天 */
@@ -87,50 +91,20 @@ export async function copyLastSession(date = todayStr()): Promise<{ session: Wor
   const src = await getSessionDetail(last.id)
   if (!src) return null
 
-  const now = Date.now()
-  const session: WorkoutSession = {
-    id: uid(),
-    date,
-    status: 'active',
-    bodyParts: last.bodyParts,
-    title: last.title ?? sessionTitle(last.bodyParts),
-    startedAt: now,
-    copiedFromSessionId: last.id,
-    createdAt: now,
-    updatedAt: now,
+  const session = await startSession(last.bodyParts, { date, copiedFromSessionId: last.id })
+  try {
+    await updateSession(session.id, { title: last.title ?? sessionTitle(last.bodyParts) })
+    for (const item of src.exercises) {
+      const weId = await addExerciseToSession(session.id, item.exercise.id)
+      for (const set of item.sets) {
+        await addSet(weId, { weight: set.weight, reps: set.reps, weightType: set.weightType, rpe: set.rpe })
+      }
+    }
+    return { session: (await db.sessions.get(session.id)) ?? session }
+  } catch (error) {
+    await discardSession(session.id).catch(() => undefined)
+    throw error
   }
-  const wes: WorkoutExercise[] = []
-  const sets: WorkoutSet[] = []
-  for (const item of src.exercises) {
-    const weId = uid()
-    wes.push({
-      id: weId,
-      sessionId: session.id,
-      exerciseId: item.exercise.id,
-      order: item.order,
-      createdAt: now,
-    })
-    item.sets.forEach((s, i) => {
-      sets.push({
-        id: uid(),
-        workoutExerciseId: weId,
-        sessionId: session.id,
-        exerciseId: item.exercise.id,
-        setNumber: i + 1,
-        weight: s.weight,
-        reps: s.reps,
-        weightType: s.weightType,
-        date,
-        createdAt: now,
-      })
-    })
-  }
-  await db.transaction('rw', db.sessions, db.workoutExercises, db.sets, async () => {
-    await db.sessions.put(session)
-    await db.workoutExercises.bulkPut(wes)
-    await db.sets.bulkPut(sets)
-  })
-  return { session }
 }
 
 /** 从模板开始训练 */
@@ -138,38 +112,18 @@ export async function startFromTemplate(templateId: ID, date = todayStr()): Prom
   const tpl = await db.templates.get(templateId)
   if (!tpl) return null
   const session = await startSession(tpl.bodyParts, { date, templateId })
-  const now = Date.now()
-  for (let i = 0; i < tpl.items.length; i++) {
-    const item = tpl.items[i]
-    const weId = uid()
-    await db.workoutExercises.put({
-      id: weId,
-      sessionId: session.id,
-      exerciseId: item.exerciseId,
-      order: i,
-      createdAt: now,
-    })
-    const sets: WorkoutSet[] = []
-    let n = 1
-    for (const g of item.sets) {
-      for (let c = 0; c < Math.max(1, g.count); c++) {
-        sets.push({
-          id: uid(),
-          workoutExerciseId: weId,
-          sessionId: session.id,
-          exerciseId: item.exerciseId,
-          setNumber: n++,
-          weight: g.weight,
-          reps: g.reps,
-          weightType: g.weightType,
-          date,
-          createdAt: now,
-        })
+  try {
+    for (const item of tpl.items) {
+      const weId = await addExerciseToSession(session.id, item.exerciseId)
+      for (const group of item.sets) {
+        await addSetBulk(weId, group)
       }
     }
-    if (sets.length) await db.sets.bulkPut(sets)
+    return session
+  } catch (error) {
+    await discardSession(session.id).catch(() => undefined)
+    throw error
   }
-  return session
 }
 
 export interface SessionDetail {
@@ -215,10 +169,17 @@ export async function getSessionDetail(sessionId: ID): Promise<SessionDetail | n
 }
 
 export async function updateSession(id: ID, patch: Partial<WorkoutSession>): Promise<void> {
-  await db.sessions.update(id, { ...patch, updatedAt: Date.now() })
+  const next = { ...patch, updatedAt: Date.now() }
+  if (activeUserId) {
+    const { session } = await api.patchSession(id, next)
+    await db.sessions.put(session)
+  } else {
+    await db.sessions.update(id, next)
+  }
 }
 
 export async function discardSession(id: ID): Promise<void> {
+  if (activeUserId) await api.deleteSession(id)
   await db.transaction('rw', db.sessions, db.workoutExercises, db.sets, async () => {
     await db.sets.where('sessionId').equals(id).delete()
     await db.workoutExercises.where('sessionId').equals(id).delete()
@@ -247,7 +208,13 @@ export async function completeSession(
     before.set(eid, new Map(prs.map((p) => [p.type, p.value])))
   }
 
-  await db.sessions.update(id, { ...patch, status: 'completed', completedAt: Date.now(), updatedAt: Date.now() })
+  const completedPatch = { ...patch, status: 'completed' as const, completedAt: Date.now(), updatedAt: Date.now() }
+  if (activeUserId) {
+    const { session: saved } = await api.patchSession(id, completedPatch)
+    await db.sessions.put(saved)
+  } else {
+    await db.sessions.update(id, completedPatch)
+  }
   for (const eid of exerciseIds) await rebuildPRsForExercise(eid)
 
   // 后置:对比得到新 PR(仅取 组级类型,容量 PR 不弹庆祝;每个动作只保留最显著一条)
@@ -286,18 +253,21 @@ export async function completeSession(
 export async function addExerciseToSession(sessionId: ID, exerciseId: ID): Promise<ID> {
   const existing = await db.workoutExercises.where('sessionId').equals(sessionId).toArray()
   const id = uid()
-  await db.workoutExercises.put({
+  const row: WorkoutExercise = {
     id,
     sessionId,
     exerciseId,
     order: existing.length,
     createdAt: Date.now(),
-  })
+  }
+  const authoritative = activeUserId ? (await api.addWorkoutExercise(sessionId, row)).workoutExercise : row
+  await db.workoutExercises.put(authoritative)
   return id
 }
 
 export async function removeExerciseFromSession(workoutExerciseId: ID): Promise<void> {
   const we = await db.workoutExercises.get(workoutExerciseId)
+  if (activeUserId) await api.deleteWorkoutExercise(workoutExerciseId)
   await db.transaction('rw', db.workoutExercises, db.sets, async () => {
     await db.sets.where('workoutExerciseId').equals(workoutExerciseId).delete()
     await db.workoutExercises.delete(workoutExerciseId)
@@ -307,6 +277,9 @@ export async function removeExerciseFromSession(workoutExerciseId: ID): Promise<
 }
 
 export async function reorderSessionExercises(_sessionId: ID, orderedIds: ID[]): Promise<void> {
+  if (activeUserId) {
+    for (let i = 0; i < orderedIds.length; i++) await api.patchWorkoutExercise(orderedIds[i], { order: i })
+  }
   await db.transaction('rw', db.workoutExercises, async () => {
     for (let i = 0; i < orderedIds.length; i++) {
       await db.workoutExercises.update(orderedIds[i], { order: i })
@@ -336,7 +309,8 @@ export async function addSet(
     date: session.date,
     createdAt: Date.now(),
   }
-  await db.sets.put(set)
+  const authoritative = activeUserId ? (await api.addSet(we.sessionId, set)).set : set
+  await db.sets.put(authoritative)
 }
 
 export async function addSetBulk(
@@ -347,7 +321,12 @@ export async function addSetBulk(
 }
 
 export async function updateSet(setId: ID, patch: Partial<Pick<WorkoutSet, 'weight' | 'reps' | 'rpe'>>): Promise<void> {
-  await db.sets.update(setId, patch)
+  if (activeUserId) {
+    const { set } = await api.patchSet(setId, patch)
+    await db.sets.put(set)
+  } else {
+    await db.sets.update(setId, patch)
+  }
   // 重量/次数变化影响 PR(尤其是编辑历史训练时)
   if (patch.weight !== undefined || patch.reps !== undefined) {
     const set = await db.sets.get(setId)
@@ -358,6 +337,7 @@ export async function updateSet(setId: ID, patch: Partial<Pick<WorkoutSet, 'weig
 export async function deleteSet(setId: ID): Promise<void> {
   const s = await db.sets.get(setId)
   if (!s) return
+  if (activeUserId) await api.deleteSet(setId)
   await db.sets.delete(setId)
   // 重排 setNumber,保持连续
   const siblings = (await db.sets.where('workoutExerciseId').equals(s.workoutExerciseId).toArray()).sort(
@@ -375,10 +355,13 @@ export async function deleteSet(setId: ID): Promise<void> {
 /* =============== 日状态(休息日) =============== */
 
 export async function markRest(date: string, note?: string): Promise<void> {
-  await db.dailyStatuses.put({ date, status: 'rest', note })
+  const row: DailyStatus = { date, status: 'rest', note }
+  const authoritative = activeUserId ? (await api.putDailyStatus(date, row)).dailyStatus : row
+  await db.dailyStatuses.put(authoritative)
 }
 
 export async function unmarkRest(date: string): Promise<void> {
+  if (activeUserId) await api.deleteDailyStatus(date)
   await db.dailyStatuses.delete(date)
 }
 
@@ -412,8 +395,9 @@ export async function createExercise(data: {
   if (!exercise.name) throw new Error('动作名称不能为空')
   const dup = await db.exercises.where('name').equals(exercise.name).first()
   if (dup && !dup.deletedAt) throw new Error('已存在同名动作')
-  await db.exercises.put(exercise)
-  return exercise
+  const authoritative = activeUserId ? (await api.createExercise(exercise)).exercise : exercise
+  await db.exercises.put(authoritative)
+  return authoritative
 }
 
 function guessEquipment(t: WeightType): Exercise['equipment'] {
@@ -435,16 +419,33 @@ export async function updateExercise(
     if (dup && dup.id !== id && !dup.deletedAt) throw new Error('已存在同名动作')
     patch.name = patch.name.trim()
   }
-  await db.exercises.update(id, { ...patch, updatedAt: Date.now() })
+  const next = { ...patch, updatedAt: Date.now() }
+  if (activeUserId) {
+    const { exercise } = await api.patchExercise(id, next)
+    await db.exercises.put(exercise)
+  } else {
+    await db.exercises.update(id, next)
+  }
 }
 
 /** 软删除:历史训练仍正确关联展示 */
 export async function deleteExercise(id: ID): Promise<void> {
-  await db.exercises.update(id, { deletedAt: Date.now(), updatedAt: Date.now() })
+  if (activeUserId) {
+    await api.deleteExercise(id)
+    await db.exercises.update(id, { deletedAt: Date.now(), updatedAt: Date.now() })
+  } else {
+    await db.exercises.update(id, { deletedAt: Date.now(), updatedAt: Date.now() })
+  }
 }
 
 export async function restoreExercise(id: ID): Promise<void> {
-  await db.exercises.update(id, { deletedAt: undefined, updatedAt: Date.now() })
+  const next = { deletedAt: null, updatedAt: Date.now() } as unknown as Partial<Exercise>
+  if (activeUserId) {
+    const { exercise } = await api.patchExercise(id, next)
+    await db.exercises.put(exercise)
+  } else {
+    await db.exercises.update(id, { deletedAt: undefined, updatedAt: Date.now() })
+  }
 }
 
 /* =============== 模板 =============== */
@@ -466,8 +467,11 @@ export async function saveTemplate(data: {
     createdAt: now,
     updatedAt: now,
   }
-  await db.templates.put(tpl)
-  return tpl
+  const authoritative = activeUserId
+    ? data.id ? (await api.patchTemplate(tpl.id, tpl)).template : (await api.createTemplate(tpl)).template
+    : tpl
+  await db.templates.put(authoritative)
+  return authoritative
 }
 
 export async function saveSessionAsTemplate(sessionId: ID, name: string): Promise<WorkoutTemplate> {
@@ -484,12 +488,14 @@ export async function saveSessionAsTemplate(sessionId: ID, name: string): Promis
 }
 
 export async function deleteTemplate(id: ID): Promise<void> {
+  if (activeUserId) await api.deleteTemplate(id)
   await db.templates.delete(id)
 }
 
 /* =============== Demo 数据 =============== */
 
 export async function clearDemoData(): Promise<void> {
+  if (activeUserId) await api.clearDemoData()
   const demoSessions = await db.sessions.where('isDemo').equals(1).toArray()
   const demoSessionIds = demoSessions.map((s) => s.id)
   await db.transaction(
@@ -514,6 +520,7 @@ export async function clearDemoData(): Promise<void> {
 /* =============== 清空全部 =============== */
 
 export async function clearAllData(): Promise<void> {
+  const reset = activeUserId ? await api.resetData() : null
   await db.transaction(
     'rw',
     [db.exercises, db.sessions, db.workoutExercises, db.sets, db.dailyStatuses, db.templates, db.personalRecords, db.prEvents, db.aiAnalyses, db.appState, db.activitySessions],
@@ -534,7 +541,8 @@ export async function clearAllData(): Promise<void> {
       await db.appState.delete('defaultExercisesSeeded')
     },
   )
-  await ensureDefaultExercises()
+  if (reset) await db.exercises.bulkPut(reset.exercises)
+  else await ensureDefaultExercises()
 }
 
 /* =============== 展示辅助 =============== */

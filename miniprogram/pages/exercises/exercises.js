@@ -29,12 +29,12 @@ Page({
     this.setData({ loading: true })
     try {
       const exercises = (await data.listExercises()).map((e) => Object.assign({}, e, { partLabel: BODY_PART_LABELS[e.bodyPart] || e.bodyPart }))
-      this.setData({ exercises }); this.filterList()
+      this.setData({ exercises, visible: this.filtered(exercises, this.data.query, this.data.filter) })
     } catch(e){wx.showToast({title:e.message||'加载失败',icon:'none'})} finally{this.setData({loading:false})}
   },
-  onSearch(e){this.setData({query:e.detail.value});this.filterList()},
-  onFilter(e){const id=e.currentTarget.dataset.id;this.setData({filter:this.data.filter===id?'':id});this.filterList()},
-  filterList(){const q=this.data.query.trim().toLowerCase(),f=this.data.filter;this.setData({visible:this.data.exercises.filter((e)=>(!f||e.bodyPart===f)&&(!q||e.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name,'zh'))})},
+  onSearch(e){const query=e.detail.value;this.setData({query,visible:this.filtered(this.data.exercises,query,this.data.filter)})},
+  onFilter(e){const id=e.currentTarget.dataset.id,filter=this.data.filter===id?'':id;this.setData({filter,visible:this.filtered(this.data.exercises,this.data.query,filter)})},
+  filtered(exercises,query,filter){const q=String(query||'').trim().toLowerCase();return exercises.filter((e)=>(!filter||e.bodyPart===filter)&&(!q||e.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name,'zh'))},
   onCreate(){this.setData({editorOpen:true,editingId:'',form:emptyForm()})},
   onOpen(e){const id=e.currentTarget.dataset.id;if(id)wx.navigateTo({url:`/pages/exercise-detail/exercise-detail?id=${id}`})},
   onEdit(e){const item=this.data.exercises.find((x)=>x.id===e.currentTarget.dataset.id);if(item)this.setData({editorOpen:true,editingId:item.id,form:{name:item.name,bodyPart:item.bodyPart,defaultWeightType:item.defaultWeightType||'weight'}})},

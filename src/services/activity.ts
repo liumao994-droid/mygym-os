@@ -1,4 +1,4 @@
-import { db } from '@/db/db'
+import { activeUserId, db } from '@/db/db'
 import type {
   ActivityScore,
   ActivitySession,
@@ -12,6 +12,7 @@ import type {
 } from '@/db/models'
 import { STROKE_LABEL } from '@/db/models'
 import { currentMonthKey, todayStr, uid } from '@/lib/util'
+import { api } from './api'
 
 /**
  * 通用运动记录服务(羽毛球等非力量运动)。
@@ -97,15 +98,23 @@ export async function createActivity(input: ActivityInput): Promise<ActivitySess
     createdAt: now,
     updatedAt: now,
   }
-  await db.activitySessions.put(session)
-  return session
+  const authoritative = activeUserId ? (await api.createActivity(session)).activity : session
+  await db.activitySessions.put(authoritative)
+  return authoritative
 }
 
 export async function updateActivity(id: string, patch: Partial<ActivityInput>): Promise<void> {
-  await db.activitySessions.update(id, { ...patch, updatedAt: Date.now() })
+  const next = { ...patch, updatedAt: Date.now() }
+  if (activeUserId) {
+    const { activity } = await api.patchActivity(id, next)
+    await db.activitySessions.put(activity)
+  } else {
+    await db.activitySessions.update(id, next)
+  }
 }
 
 export async function deleteActivity(id: string): Promise<void> {
+  if (activeUserId) await api.deleteActivity(id)
   await db.activitySessions.delete(id)
 }
 

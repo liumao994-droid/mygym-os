@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { AppConfig } from '../config.js'
 import type { Store } from '../db/sqlite.js'
 import { requireAuth, authOf, signToken } from '../auth.js'
-import { loginDev, loginLocal, loginWithWechat, registerLocal } from '../services/users.js'
+import { loginDev, loginLocal, loginWithWechat, registerLocal, bindWechatIdentity } from '../services/users.js'
 import { HttpError } from '../auth.js'
 
 interface RateBucket {
@@ -104,6 +104,21 @@ export function authRoutes(store: Store, cfg: AppConfig): Router {
     loginWithWechat(store, cfg, code)
       .then((user) => {
         res.json({ token: issueToken(user), user })
+      })
+      .catch(next)
+  })
+
+  /**
+   * 微信绑定:已登录用户把 wx.login 的 code 换成的 openid 关联到当前账号。
+   * 绑定成功后 /auth/wechat 直接返回本账号,Web 与小程序共用同一 userId。
+   */
+  r.post('/wechat/bind', requireAuth(store, cfg), (req, res, next) => {
+    const { userId } = authOf(req)
+    const body = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>
+    const code = typeof body.code === 'string' ? body.code : ''
+    bindWechatIdentity(store, cfg, code, userId)
+      .then((result) => {
+        res.json({ ok: true, linked: result.linked, migrated: result.migrated })
       })
       .catch(next)
   })

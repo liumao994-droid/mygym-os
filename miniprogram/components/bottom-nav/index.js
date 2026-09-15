@@ -16,7 +16,7 @@ Component({
     onSelect(e) {
       const item = ITEMS.find((x) => x.key === e.currentTarget.dataset.key)
       if (!item || item.key === this.properties.selected) return
-      wx.reLaunch({ url: item.url })
+      wx.switchTab({ url: item.url })
     }
   }
 })

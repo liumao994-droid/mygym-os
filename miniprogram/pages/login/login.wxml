@@ -14,11 +14,23 @@
   <view class="login-panel">
     <view class="panel-kicker">欢迎回来</view>
     <view class="panel-title">登录你的训练空间</view>
+
+    <view class="account-form">
+      <view class="dev-label">账号</view>
+      <input class="input full-input" value="{{account}}" placeholder="网页版注册的用户名" bindinput="onAccountInput" />
+      <view class="dev-label nickname-label">密码</view>
+      <input class="input full-input" value="{{password}}" password placeholder="网页版登录密码" bindinput="onPasswordInput" />
+      <button class="account-login-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onAccountLogin">登录</button>
+      <view class="account-hint">使用网页版同一账号登录,训练数据双端互通</view>
+    </view>
+
+    <view class="divider"><text>或</text></view>
+
     <button class="wechat-btn" loading="{{busy}}" disabled="{{busy}}" bindtap="onWechatLogin">
       <text class="wechat-icon">We</text>
       <text>微信一键登录</text>
     </button>
-    <view class="privacy">登录即代表同意使用微信身份创建或关联 MyGym OS 账号</view>
+    <view class="privacy">微信登录后可用同一账号密码登录的账号绑定,实现一键直达</view>
   </view>
 
   <block wx:if="{{canDevLogin}}">

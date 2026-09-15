@@ -50,6 +50,42 @@ async function devLogin(nickname) {
   return auth
 }
 
+/**
+ * 账号密码登录:与网页版共用同一个 local 账号(/auth/login)。
+ * 登录成功后两端是同一个 userId,训练数据天然互通。
+ */
+async function accountLogin(username, password) {
+  const auth = await http.request({
+    path: '/auth/login',
+    method: 'POST',
+    data: { username, password },
+    auth: false,
+    loading: true,
+    loadingText: '登录中'
+  })
+  session.saveAuth(auth)
+  return auth
+}
+
+/**
+ * 把当前微信 openid 绑定到已登录账号(幂等,失败静默)。
+ * 绑定后 /auth/wechat 会直接返回该账号;服务端未配置微信时跳过。
+ */
+async function bindWechatToCurrentUser() {
+  try {
+    const code = await wxLoginCode()
+    return await http.request({
+      path: '/auth/wechat/bind',
+      method: 'POST',
+      data: { code },
+      loading: false
+    })
+  } catch (e) {
+    if (e && e.code === 'WECHAT_NOT_CONFIGURED') return null
+    return { linked: false, migrated: false, error: e }
+  }
+}
+
 function isLoggedIn() {
   return session.isLoggedIn()
 }
@@ -76,6 +112,8 @@ async function logout() {
 module.exports = {
   wechatLogin,
   devLogin,
+  accountLogin,
+  bindWechatToCurrentUser,
   isLoggedIn,
   currentUser,
   getMe,

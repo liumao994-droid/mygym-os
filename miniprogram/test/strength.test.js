@@ -33,7 +33,7 @@ test('startSession 创建服务端 active 会话,标题由部位生成', async (
   assert.equal(sessionRow.id, 'session-active-1')
   const req = wx.requests[0]
   assert.equal(req.method, 'POST')
-  assert.equal(req.url, 'http://127.0.0.1:8787/api/sessions')
+  assert.equal(req.url, 'https://mygym-os-production.up.railway.app/api/sessions')
   assert.equal(req.data.status, 'active')
   assert.deepEqual(req.data.bodyParts, ['chest', 'triceps'])
   assert.equal(req.header.Authorization, 'Bearer jwt-user-a')
@@ -86,6 +86,13 @@ test('addSetGroup 按 count 连续写组并保留 kg 底层语义', async () => 
   assert.equal(posts.length, 2)
   assert.equal(posts[0].data.weight, -20)
   assert.equal(posts[1].data.setNumber, 3)
+})
+
+test('addSetGroup 拒绝小数、负数和过大组数', async () => {
+  await assert.rejects(() => strength.addSetGroup('s-1', 'we-1', { weightType: 'weight', weight: '20', reps: '8.5', count: '1', date: '2026-09-08' }), /次数/)
+  await assert.rejects(() => strength.addSetGroup('s-1', 'we-1', { weightType: 'weight', weight: '20', reps: '8', count: '-1', date: '2026-09-08' }), /组数/)
+  await assert.rejects(() => strength.addSetGroup('s-1', 'we-1', { weightType: 'weight', weight: '20', reps: '8', count: '1000', date: '2026-09-08' }), /组数/)
+  assert.equal(wx.requests.length, 0)
 })
 
 test('startFromTemplate 创建训练、动作与预设组并绑定模板', async () => {

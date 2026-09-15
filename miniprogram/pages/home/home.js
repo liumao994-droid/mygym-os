@@ -9,7 +9,8 @@ const SPORT_DEFS = [
   { id: 'strength', label: '力量训练', emoji: '🏋️', short: '力量', tone: 'lime' },
   { id: 'badminton', label: '羽毛球', emoji: '🏸', short: '羽球', tone: 'coral' },
   { id: 'swimming', label: '游泳', emoji: '🏊', short: '游泳', tone: 'cyan' },
-  { id: 'tennis', label: '网球', emoji: '🎾', short: '网球', tone: 'yellow' }
+  { id: 'tennis', label: '网球', emoji: '🎾', short: '网球', tone: 'yellow', easterEgg: 'Evan' },
+  { id: 'volleyball', label: '排球', emoji: '🏐', short: '排球', tone: 'clay' }
 ]
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -59,8 +60,11 @@ Page({
 
   onShow() {
     if (!auth.isLoggedIn()) return
+    const tabBar = this.getTabBar && this.getTabBar()
+    if (tabBar) tabBar.setData({ selected: 'home' })
     const user = auth.currentUser()
     if (user) this.applyUser(user)
+    if (this.hasLoaded) this.refresh()
   },
 
   async onPullDownRefresh() {
@@ -73,14 +77,15 @@ Page({
     this.setData({ loading: true, error: '' })
     try {
       const user = await auth.getMe()
-      const [sessions, badminton, swimming, tennis, quotaBody] = await Promise.all([
-        data.listSessions({ limit: 100 }),
+      const [sessions, badminton, swimming, tennis, volleyball, quotaBody] = await Promise.all([
+        data.listSessions({ status: 'completed', limit: 100 }),
         data.listActivities({ sport: 'badminton', limit: 100 }),
         data.listActivities({ sport: 'swimming', limit: 100 }),
         data.listActivities({ sport: 'tennis', limit: 100 }),
+        data.listActivities({ sport: 'volleyball', limit: 100 }),
         ai.quota()
       ])
-      const bySport = { strength: sessions, badminton, swimming, tennis }
+      const bySport = { strength: sessions, badminton, swimming, tennis, volleyball }
       const sports = SPORT_DEFS.map((s) =>
         Object.assign({}, s, {
           count: (bySport[s.id] || []).length,
@@ -91,7 +96,7 @@ Page({
           }))
         })
       )
-      const allRecords = [].concat(sessions, badminton, swimming, tennis)
+      const allRecords = [].concat(sessions, badminton, swimming, tennis, volleyball)
       const meta = pageMeta()
       const latest = allRecords.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]
       this.applyUser(user)
@@ -104,6 +109,8 @@ Page({
         monthRecords: allRecords.filter((r) => String(r.date || '').startsWith(meta.monthPrefix)).length,
         latestDate: latest ? latest.date.slice(5).replace('-', '.') : '--'
       })
+      this.hasLoaded = true
+      this.loadedRevision = data.getRevision()
     } catch (e) {
       this.setData({ error: e.message || '加载失败' })
     } finally {
@@ -116,7 +123,7 @@ Page({
   },
 
   onOpenStrength() {
-    wx.navigateTo({ url: '/pages/strength/strength' })
+    wx.switchTab({ url: '/pages/strength/strength' })
   },
 
   onSportTap(e) {

@@ -30,4 +30,5 @@
 .tone-coral { color: #ff8c70; }
 .tone-cyan { color: #4fc3d7; }
 .tone-yellow { color: #d5ad25; }
+.tone-clay { color: #c58b6a; }
 .subtle { opacity: 0.04; }

@@ -35,6 +35,16 @@ CREATE TABLE IF NOT EXISTS auth_identities (
   UNIQUE(provider, provider_id)
 );
 
+/** 微信临时账号并入正式账号前的只读快照，便于审计和人工恢复。 */
+CREATE TABLE IF NOT EXISTS account_merge_backups (
+  id TEXT PRIMARY KEY,
+  source_user_id TEXT NOT NULL,
+  target_user_id TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  data_json TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
 /** V1 JWT 注销表：只保存 jti 与原 token 的自然过期时间，不保存 token 本身。 */
 CREATE TABLE IF NOT EXISTS revoked_tokens (
   jti TEXT PRIMARY KEY,

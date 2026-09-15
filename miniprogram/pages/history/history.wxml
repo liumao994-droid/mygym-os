@@ -43,5 +43,4 @@
       <view class="empty" wx:if="{{!visibleRows.length}}">这个范围还没有记录</view>
     </view>
   </view>
-  <bottom-nav selected="history" />
 </view>

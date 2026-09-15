@@ -31,7 +31,7 @@ test('微信登录:wx.login code 交给后端 /auth/wechat,并保存返回的统
   const out = await auth.wechatLogin()
   assert.equal(out.token, 'jwt-wx')
   assert.equal(wx.requests.length, 1)
-  assert.equal(wx.requests[0].url, 'http://127.0.0.1:8787/api/auth/wechat')
+  assert.equal(wx.requests[0].url, 'https://mygym-os-production.up.railway.app/api/auth/wechat')
   assert.equal(wx.requests[0].data.code, 'temporary-code-abc')
   assert.equal(session.getToken(), 'jwt-wx')
   assert.equal(wx.loadingStack.some((item) => item.show), true)
@@ -64,6 +64,32 @@ test('统一 client:数据/AI 服务都携带 Bearer token 且不发 AppSecret',
   assert.ok(urls.some((u) => u.endsWith('/api/sessions')))
   assert.ok(urls.some((u) => u.endsWith('/api/activities')))
   assert.ok(urls.some((u) => u.endsWith('/api/ai/training-summary')))
+})
+
+test('GET 只合并并发请求，完成后重新读取服务端最新数据', async () => {
+  data.clearReadCache()
+  preloadAuth()
+  wx.enqueue({ statusCode: 200, data: { sessions: [{ id: 'a-1' }] } })
+  const first = data.listSessions()
+  const concurrent = data.listSessions()
+  assert.equal((await first).length, 1)
+  assert.equal((await concurrent).length, 1)
+  assert.equal(wx.requests.length, 1)
+
+  wx.enqueue({ statusCode: 200, data: { sessions: [{ id: 'a-2' }, { id: 'a-1' }] } })
+  assert.equal((await data.listSessions()).length, 2)
+  assert.equal(wx.requests.length, 2)
+
+  session.saveAuth({ token: 'jwt-user-b', user: { id: 'user-b', nickname: '用户B', authProvider: 'wechat' } })
+  wx.enqueue({ statusCode: 200, data: { sessions: [{ id: 'b-1' }] } })
+  assert.equal((await data.listSessions())[0].id, 'b-1')
+  assert.equal(wx.requests.length, 3)
+
+  wx.enqueue({ statusCode: 201, data: { session: { id: 'b-2' } } })
+  await data.createSession({ date: '2026-09-09', status: 'active', bodyParts: ['back'] })
+  wx.enqueue({ statusCode: 200, data: { sessions: [{ id: 'b-2' }, { id: 'b-1' }] } })
+  assert.equal((await data.listSessions()).length, 2)
+  assert.equal(wx.requests.length, 5)
 })
 
 test('统一错误处理:401 清会话回登录;429 quota / 403 / 500 / 网络 / 超时分类正确', async () => {

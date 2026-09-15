@@ -8,7 +8,8 @@ const FILTERS = [
   { id: 'strength', label: '力量' },
   { id: 'badminton', label: '羽毛球' },
   { id: 'swimming', label: '游泳' },
-  { id: 'tennis', label: '网球' }
+  { id: 'tennis', label: '网球' },
+  { id: 'volleyball', label: '排球' }
 ]
 
 const SPORT = {
@@ -16,8 +17,11 @@ const SPORT = {
   badminton: { icon: '🏸', name: '羽毛球', tone: 'coral' },
   swimming: { icon: '🏊', name: '游泳', tone: 'cyan' },
   tennis: { icon: '🎾', name: '网球', tone: 'yellow' },
+  volleyball: { icon: '🏐', name: '排球', tone: 'clay' },
   rest: { icon: '月', name: '休息', tone: 'rest' }
 }
+
+const ROW_BATCH = 80
 
 function pad2(n) { return String(n).padStart(2, '0') }
 function dateKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` }
@@ -31,6 +35,13 @@ function describeActivity(a) {
     if (a.distanceM) bits.push(`${Math.round(a.distanceM)} 米`)
     if (a.durationMin) bits.push(`${a.durationMin} 分钟`)
     return bits.join(' · ') || a.venue || '游泳记录'
+  }
+  if (a.sport === 'volleyball') {
+    const sets = Array.isArray(a.volleyballSets) ? a.volleyballSets : []
+    const won = sets.filter((s) => Number(s.ourScore) > Number(s.opponentScore)).length
+    const lost = sets.filter((s) => Number(s.ourScore) < Number(s.opponentScore)).length
+    if (sets.length) return `${won} 胜 · ${lost} 负局`
+    return a.durationMin ? `${a.durationMin} 分钟` : (a.venue || SPORT[a.sport].name)
   }
   const score = a.score || {}
   const unit = a.sport === 'tennis' ? '盘' : '局'
@@ -87,6 +98,8 @@ Page({
       wx.reLaunch({ url: '/pages/login/login' })
       return
     }
+    const tabBar = this.getTabBar && this.getTabBar()
+    if (tabBar) tabBar.setData({ selected: 'history' })
     this.load()
   },
 
@@ -120,6 +133,8 @@ Page({
       rows.sort((a, b) => a.date === b.date ? b.sortTs - a.sortTs : b.date.localeCompare(a.date))
       this.allRows = rows
       this.refreshView(rows)
+      this.lastLoadedAt = Date.now()
+      this.loadedRevision = data.getRevision()
     } catch (e) {
       wx.showToast({ title: e.message || '加载历史失败', icon: 'none' })
     } finally {
@@ -131,11 +146,13 @@ Page({
     const rows = source || this.allRows || []
     const filtered = this.data.filter === 'all' ? rows : rows.filter((r) => r.sport === this.data.filter)
     const monthRows = filtered.filter((r) => r.date.startsWith(this.data.month))
-    const visibleRows = this.data.selectedDate ? filtered.filter((r) => r.date === this.data.selectedDate) : filtered
+    const allVisibleRows = this.data.selectedDate ? filtered.filter((r) => r.date === this.data.selectedDate) : filtered
+    this.allVisibleRows = allVisibleRows
+    this.visibleLimit = this.data.selectedDate ? allVisibleRows.length : ROW_BATCH
     const p = this.data.month.split('-')
     this.setData({
       rows: filtered,
-      visibleRows,
+      visibleRows: allVisibleRows.slice(0, this.visibleLimit),
       calendar: buildCalendar(this.data.month, monthRows, this.data.selectedDate),
       monthLabel: `${p[0]}年${Number(p[1])}月`,
       counts: {
@@ -145,7 +162,12 @@ Page({
     })
   },
 
-  onMode(e) { this.setData({ mode: e.currentTarget.dataset.mode }) },
+  onMode(e) { this.setData({ mode: e.currentTarget.dataset.mode }); this.refreshView() },
+  onReachBottom() {
+    if (this.data.mode !== 'timeline' || !this.allVisibleRows || this.data.visibleRows.length >= this.allVisibleRows.length) return
+    this.visibleLimit += ROW_BATCH
+    this.setData({ visibleRows: this.allVisibleRows.slice(0, this.visibleLimit) })
+  },
   onFilter(e) { this.setData({ filter: e.currentTarget.dataset.id, selectedDate: '' }); this.refreshView() },
   onSelectDay(e) {
     const date = e.currentTarget.dataset.date

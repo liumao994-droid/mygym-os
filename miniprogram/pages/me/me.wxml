@@ -43,5 +43,4 @@
     <view class="about-card wm-host"><brand-watermark size="small" position="br" tone="ink" subtle /><view class="wm-content"><view class="about-brand">MyGym<text>OS</text></view><view class="about-tag">TRAIN · TRACK · GROW</view><view class="about-copy">记录训练，沉淀数据，发现进步，长期成长。</view></view></view>
     <button class="logout" bindtap="onLogout">退出登录</button>
   </view>
-  <bottom-nav selected="me" />
 </view>
