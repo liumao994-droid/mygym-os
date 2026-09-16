@@ -38,6 +38,25 @@ test('微信登录:wx.login code 交给后端 /auth/wechat,并保存返回的统
   assert.equal(wx.loadingStack.some((item) => item.hide), true)
 })
 
+test('账号注册与 Profile V1 使用服务端持久化', async () => {
+  wx.enqueue({
+    statusCode: 201,
+    data: { token: 'jwt-local', user: { id: 'local-1', username: 'user_a', nickname: '三毛', authProvider: 'local' } }
+  })
+  await auth.register('user_a', 'password-123', '三毛')
+  assert.equal(wx.requests[0].url.endsWith('/api/auth/register'), true)
+  assert.deepEqual(wx.requests[0].data, { username: 'user_a', password: 'password-123', nickname: '三毛' })
+
+  wx.enqueue({ statusCode: 200, data: { profile: { nickname: '三毛', avatar: 'lime', bio: '', favoriteSports: [], weeklyGoal: 3 } } })
+  assert.equal((await auth.getProfile()).weeklyGoal, 3)
+
+  wx.enqueue({ statusCode: 200, data: { profile: { nickname: '三毛', avatar: 'cyan', bio: '运动中', favoriteSports: ['volleyball'], weeklyGoal: 4 } } })
+  const profile = await auth.updateProfile({ nickname: '三毛', avatar: 'cyan', bio: '运动中', favoriteSports: ['volleyball'], weeklyGoal: 4 })
+  assert.equal(profile.avatar, 'cyan')
+  assert.equal(wx.requests[2].method, 'PATCH')
+  assert.equal(wx.requests[2].header.Authorization, 'Bearer jwt-local')
+})
+
 test('统一 client:数据/AI 服务都携带 Bearer token 且不发 AppSecret', async () => {
   preloadAuth()
   wx.enqueue({ statusCode: 200, data: { sessions: [] } })
@@ -103,20 +122,20 @@ test('统一错误处理:401 清会话回登录;429 quota / 403 / 500 / 网络 /
   wx.enqueue({ statusCode: 429, data: { error: 'AI_QUOTA_EXCEEDED', message: '次数已用完' } })
   await assert.rejects(
     ai.trainingSummary({ kind: 'month', period: '2026-09', stats: {} }),
-    (err) => err.code === 'AI_QUOTA_EXCEEDED' && err.status === 429
+    (err) => err.code === 'AI_QUOTA_EXCEEDED' && err.status === 429 && err.message === '尝试次数过多，请稍后再试'
   )
 
   wx.enqueue({ statusCode: 403, data: { error: 'CORS_NOT_ALLOWED' } })
   await assert.rejects(data.listSessions(), (err) => err.status === 403 && err.code === 'CORS_NOT_ALLOWED')
 
   wx.enqueue({ statusCode: 500, data: { error: 'INTERNAL' } })
-  await assert.rejects(data.listSessions(), (err) => err.status === 500 && err.code === 'INTERNAL')
+  await assert.rejects(data.listSessions(), (err) => err.status === 500 && err.code === 'INTERNAL' && err.message === '服务器暂时异常，请稍后再试')
 
   wx.enqueue({ error: 'request:fail timeout' })
-  await assert.rejects(data.listSessions(), (err) => err.type === 'TIMEOUT' && err.code === 'TIMEOUT')
+  await assert.rejects(data.listSessions(), (err) => err.type === 'TIMEOUT' && err.code === 'TIMEOUT' && err.message === '无法连接服务器，请稍后重试')
 
   wx.enqueue({ error: 'request:fail -2:net::ERR_CONNECTION_REFUSED' })
-  await assert.rejects(data.listSessions(), (err) => err.type === 'NETWORK' && err.code === 'NETWORK')
+  await assert.rejects(data.listSessions(), (err) => err.type === 'NETWORK' && err.code === 'NETWORK' && err.message === '无法连接服务器，请稍后重试')
 })
 
 test('CRUD 服务层按 REST 语义发出 POST / GET / PATCH / DELETE', async () => {

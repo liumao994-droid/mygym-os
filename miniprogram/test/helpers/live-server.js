@@ -113,13 +113,24 @@ function makeRequester(port) {
 async function stopServer(handle) {
   if (!handle) return
   if (handle.child) {
-    try { handle.child.kill('SIGTERM') } catch (e) { /* 已退出 */ }
-    const deadline = Date.now() + 8000
-    while (!handle.child.killed && Date.now() < deadline) {
-      if (handle.child.exitCode !== null) break
-      await sleep(100)
+    const child = handle.child
+    const waitForExit = (timeoutMs) => Promise.race([
+      new Promise((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) resolve()
+        else child.once('exit', resolve)
+      }),
+      sleep(timeoutMs)
+    ])
+    if (child.exitCode === null && child.signalCode === null) {
+      try { child.kill('SIGTERM') } catch (e) { /* 已退出 */ }
+      await waitForExit(3000)
     }
-    try { handle.child.kill('SIGKILL') } catch (e) { /* 已退出 */ }
+    if (child.exitCode === null && child.signalCode === null) {
+      try { child.kill('SIGKILL') } catch (e) { /* 已退出 */ }
+      await waitForExit(1000)
+    }
+    if (child.stdout) child.stdout.destroy()
+    if (child.stderr) child.stderr.destroy()
   }
   if (handle.tmpDir) {
     try { fs.rmSync(handle.tmpDir, { recursive: true, force: true }) } catch (e) { /* 尽力清理 */ }

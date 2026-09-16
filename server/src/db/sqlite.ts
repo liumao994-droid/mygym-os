@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_nickname ON users(auth_provider, nickname);
+CREATE INDEX IF NOT EXISTS idx_users_provider_nickname ON users(auth_provider, nickname);
 
 CREATE TABLE IF NOT EXISTS auth_identities (
   id TEXT PRIMARY KEY,
@@ -257,6 +257,9 @@ export class Store {
     if (!columns.has('username')) this.db.exec('ALTER TABLE users ADD COLUMN username TEXT')
     if (!columns.has('password_hash')) this.db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT')
     this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username COLLATE NOCASE) WHERE username IS NOT NULL')
+    // nickname 是展示名，允许不同账号重复。旧数据库可能仍保留早期的唯一索引。
+    this.db.exec('DROP INDEX IF EXISTS idx_users_provider_nickname')
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_users_provider_nickname ON users(auth_provider, nickname)')
   }
 
   run(sql: string, ...params: SqliteValue[]): { changes: number | bigint } {

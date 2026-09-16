@@ -11,7 +11,7 @@
     "pages/reports/reports",
     "pages/workout/workout",
     "pages/activity/activity",
-    "pages/sandbox/sandbox"
+    "pages/legal/legal"
   ],
   "usingComponents": {
     "brand-watermark": "/components/brand-watermark/index",

@@ -348,12 +348,13 @@
 .other-card.coral { background: #ffdfd6; }
 .other-card.cyan { background: #d8f1f4; }
 .other-card.yellow { background: #f7e8a7; }
-.other-card > text:first-child { font-size: 34rpx; }
-.other-card > view { flex: 1; }
-.other-card > view > view:first-child { font-size: 25rpx; font-weight: 800; }
-.other-card > view > view:last-child { margin-top: 4rpx; color: #6f7784; font-size: 19rpx; }
-.other-card > text:last-child { color: #606b7b; font-size: 34rpx; }
-.other-card > .tennis-easter-egg {
+.other-card.clay { background: #f2ddd4; }
+.other-icon { font-size: 34rpx; }
+.other-main { flex: 1; }
+.other-name { font-size: 25rpx; font-weight: 800; }
+.other-desc { margin-top: 4rpx; color: #6f7784; font-size: 19rpx; }
+.other-arrow { color: #606b7b; font-size: 34rpx; }
+.tennis-easter-egg {
   position: absolute;
   top: 12rpx;
   right: 62rpx;

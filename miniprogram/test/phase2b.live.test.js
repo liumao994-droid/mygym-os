@@ -19,6 +19,7 @@ const assert = require('node:assert/strict')
 const { startIsolatedServer, makeRequester, stopServer } = require('./helpers/live-server.js')
 const { RealWx, pageInstance, waitUntil } = require('./helpers/real-wx.js')
 const session = require('../utils/session.js')
+const auth = require('../services/auth.js')
 const data = require('../services/data.js')
 const strength = require('../services/strength.js')
 const { todayStr } = require('../models/contracts.js')
@@ -31,7 +32,7 @@ const ctx = {
   metrics: {},
   userA: null,
   userB: null,
-  A: { completedSessions: 0, completedSets: 0, volume: 0, activities: 0, badminton: 0, swimming: 0, tennis: 0 },
+  A: { completedSessions: 0, completedSets: 0, volume: 0, activities: 0, badminton: 0, swimming: 0, tennis: 0, volleyball: 0 },
   ids: {},
   workoutPages: []
 }
@@ -530,6 +531,71 @@ live('网球:逐盘比分联动、技术/体能/彩蛋备注,新增→详情→�
   assert.equal(history.data.rows.find((r) => r.id === rec.id).detail, '3 胜 · 0 负盘')
 })
 
+live('排球:动态局分、六类技术统计、个人得分、月/年统计、编辑与删除', async () => {
+  become(ctx.userA)
+  const page = pageInstance(ctx.wxh, 'pages/activity/activity.js')
+  page.onLoad({ sport: 'volleyball' })
+  await loadPageViaShow(page, 'volleyball list load')
+  page.onCreate()
+  page.onDateChange({ detail: { value: todayStr() } })
+  page.onField({ currentTarget: { dataset: { field: 'durationMin' } }, detail: { value: '90' } })
+  page.onVbSessionType({ detail: { value: '3' } })
+  page.onVbPosition({ detail: { value: '1' } })
+  for (let i = 0; i < 3; i++) page.onAddVbSet()
+  ;[['25','20'],['20','25'],['15','10']].forEach((scores, index) => {
+    page.onVbSetField({ currentTarget: { dataset: { index, side: 'our' } }, detail: { value: scores[0] } })
+    page.onVbSetField({ currentTarget: { dataset: { index, side: 'their' } }, detail: { value: scores[1] } })
+  })
+  const stats = {
+    serve: { attempts: '20', aces: '3', errors: '2' },
+    attack: { attempts: '30', points: '10', errors: '2', blocked: '1' },
+    block: { points: '2', effective: '4' },
+    reception: { attempts: '25', perfect: '18', errors: '1' },
+    dig: { attempts: '12', successful: '9' },
+    set: { attempts: '40', successful: '35' }
+  }
+  Object.entries(stats).forEach(([group, fields]) => Object.entries(fields).forEach(([field, value]) => {
+    page.onVbStatField({ currentTarget: { dataset: { group, field } }, detail: { value } })
+  }))
+  await page.onSave()
+
+  const listed = await ctx.req('GET', '/activities', { token: ctx.userA.token, query: { sport: 'volleyball' } })
+  const rec = listed.body.activities[0]
+  assert.deepEqual(rec.volleyballSets, [{ ourScore: 25, opponentScore: 20 }, { ourScore: 20, opponentScore: 25 }, { ourScore: 15, opponentScore: 10 }])
+  assert.equal(rec.volleyballStats.serve.aces, 3)
+  assert.equal(rec.volleyballStats.attack.points, 10)
+  assert.equal(rec.volleyballStats.block.points, 2)
+  assert.equal(rec.volleyballStats.reception.perfect, 18)
+  assert.equal(rec.volleyballStats.dig.successful, 9)
+  assert.equal(rec.volleyballStats.set.successful, 35)
+
+  const edit = pageInstance(ctx.wxh, 'pages/activity/activity.js')
+  edit.onLoad({ sport: 'volleyball' })
+  await loadPageViaShow(edit, 'volleyball edit load')
+  await edit.openEdit(rec.id)
+  assert.equal(edit.data.form.vbSets.length, 3)
+  edit.onVbStatField({ currentTarget: { dataset: { group: 'serve', field: 'aces' } }, detail: { value: '4' } })
+  await edit.onSave()
+
+  const history = pageInstance(ctx.wxh, 'pages/history/history.js')
+  await loadPageViaShow(history, 'history after volleyball')
+  assert.equal(history.data.rows.find((row) => row.id === rec.id).detail, '2 胜 · 1 负局 · 个人 16 分')
+
+  const reports = pageInstance(ctx.wxh, 'pages/reports/reports.js')
+  await loadPageViaShow(reports, 'reports after volleyball')
+  assert.equal(reports.data.report.volleyball.count, 1)
+  assert.equal(reports.data.report.volleyball.personalPoints, 16)
+  assert.equal(reports.data.year.volleyball.personalPoints, 16)
+  assert.equal(/NaN|Infinity|undefined/.test(JSON.stringify(reports.data)), false)
+
+  await edit.onDelete({ currentTarget: { dataset: { id: rec.id } } })
+  const afterDelete = await ctx.req('GET', '/activities', { token: ctx.userA.token, query: { sport: 'volleyball' } })
+  assert.equal(afterDelete.body.activities.length, 0)
+  await reports.load()
+  assert.equal(reports.data.report.volleyball.count, 0)
+  assert.equal(reports.data.year.volleyball.personalPoints, 0)
+})
+
 live('MG-003 前端校验:异常输入全部拦截且不发出任何请求', async () => {
   become(ctx.userA)
   const postsBefore = ctx.wxh.requests.filter((r) => r.method === 'POST' && r.url.endsWith('/api/activities')).length
@@ -672,7 +738,7 @@ live('网络失败:保存失败有提示且不写脏数据,重试成功;失败�
   ctx.wxh.failNext = 1
   await page.onSave()
   const toast = ctx.wxh.lastToast()
-  assert.equal(toast && toast.title, '无法连接服务器,请检查网络或 API 地址')
+  assert.equal(toast && toast.title, '无法连接服务器，请稍后重试')
   assert.equal(page.data.formOpen, true, '断网后表单不得关闭,数据不丢')
   assert.equal(page.data.busy, false)
   const mid = await ctx.req('GET', '/activities', { token: ctx.userA.token, query: { sport: 'badminton' } })
@@ -694,7 +760,7 @@ live('网络失败:保存失败有提示且不写脏数据,重试成功;失败�
   await wp.load()
   ctx.wxh.failNext = 1
   await wp.onAddSetGroup({ currentTarget: { dataset: { index: 0 } } })
-  assert.equal(ctx.wxh.lastToast().title, '无法连接服务器,请检查网络或 API 地址')
+  assert.equal(ctx.wxh.lastToast().title, '无法连接服务器，请稍后重试')
   let detail = await data.getSession(s5.id)
   assert.equal(detail.workoutExercises[0].sets.length, 0, '失败请求不得产生半写入')
   await wp.onAddSetGroup({ currentTarget: { dataset: { index: 0 } } })
@@ -731,7 +797,7 @@ live('最终一致性:存在 active 会话时,全部统计页保持正确口径'
     badminton: ctx.A.badminton,
     swimming: ctx.A.swimming,
     tennis: ctx.A.tennis,
-    volleyball: 0
+    volleyball: ctx.A.volleyball
   })
   assert.equal(home.data.totalRecords, ctx.A.completedSessions + ctx.A.activities)
   assert.equal(home.data.monthRecords, ctx.A.completedSessions + ctx.A.activities)
@@ -746,6 +812,32 @@ live('最终一致性:存在 active 会话时,全部统计页保持正确口径'
   assert.equal(ctx.wxh.navigations[ctx.wxh.navigations.length - 1].url, `/pages/activity/activity?sport=tennis&id=${ctx.ids.tennis}`)
   history.onOpen({ currentTarget: { dataset: { id: ctx.ids.s1, sport: 'strength' } } })
   assert.equal(ctx.wxh.navigations[ctx.wxh.navigations.length - 1].url, `/pages/workout/workout?id=${ctx.ids.s1}`)
+})
+
+live('Profile 与每周目标:默认值、云端保存、2/3→3/3→2/3', async () => {
+  const userC = await loginAs('Phase2B-周目标C')
+  become(userC)
+  const defaults = await auth.getProfile()
+  assert.equal(defaults.weeklyGoal, 3)
+  assert.deepEqual(defaults.favoriteSports, [])
+  await auth.updateProfile({ nickname: '周目标用户', avatar: 'yellow', bio: '稳定训练', favoriteSports: ['strength', 'badminton'], weeklyGoal: 3 })
+  const now = Date.now()
+  const completed = await data.createSession({ date: todayStr(), status: 'completed', bodyParts: ['chest'], durationSec: 1800, startedAt: now - 1800000, completedAt: now, createdAt: now - 1800000, updatedAt: now })
+  const firstActivity = await data.createActivity({ sport: 'swimming', date: todayStr(), durationMin: 30, createdAt: now, updatedAt: now })
+  const me = pageInstance(ctx.wxh, 'pages/me/me.js')
+  await loadPageViaShow(me, 'weekly goal 2/3')
+  assert.equal(me.data.summary.weeklyCount, 2)
+  assert.equal(me.data.summary.weeklyGoal, 3)
+  const third = await data.createActivity({ sport: 'badminton', date: todayStr(), durationMin: 45, createdAt: now + 1, updatedAt: now + 1 })
+  await me.load()
+  assert.equal(me.data.summary.weeklyCount, 3)
+  await data.deleteActivity(third.id)
+  await me.load()
+  assert.equal(me.data.summary.weeklyCount, 2)
+  assert.equal(me.data.profile.bio, '稳定训练')
+  assert.equal(me.data.profile.avatar, 'yellow')
+  assert.equal(completed.status, 'completed')
+  assert.equal(firstActivity.sport, 'swimming')
 })
 
 /* ================= 三、超长历史压力测试(用户 B) ================= */

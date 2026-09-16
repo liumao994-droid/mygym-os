@@ -3,22 +3,17 @@
 /**
  * 小程序运行环境配置。
  * 规则:
- * - develop/trial(开发版/体验版):storage 手动覆盖 > DEV_API_BASE
- * - release(正式版):只允许 PROD_API_BASE,忽略手动覆盖,防止正式包连回本机。
+ * - 真机 develop/trial/release:固定使用 Railway 生产 API。
+ * - 仅微信开发者工具允许 storage 手动覆盖，便于受控联调。
  * 后端 URL 不含 /api;API client 统一拼接。
  *
- * 默认连接 Railway 云端(与网页版同一个后端、同一个 SQLite):
- * 这样真机开发版/体验版开箱即与网页版数据互通。
- * 本机联调时在登录页「开发联调 → API 地址」填 http://127.0.0.1:8787 覆盖
- * (需在微信开发者工具勾选「不校验合法域名」)。
+ * 真机包始终连接已配置 request 合法域名的 Railway 服务。
  */
 
 const API_BASE_STORAGE_KEY = 'mygym.apiBase'
-/** 本机联调地址(仅作为最终兜底,正常应手动覆盖或使用云端地址) */
-const LOCAL_API_BASE = 'http://127.0.0.1:8787'
-/** 云端生产后端:网页版与小程序共用的 Source of Truth */
+/** 云端生产后端：小程序正式数据源 */
 const CLOUD_API_BASE = 'https://mygym-os-production.up.railway.app'
-/** 开发版/体验版默认走云端;真机 127.0.0.1 不可达 */
+/** 开发者工具默认也走云端 */
 const DEV_API_BASE = CLOUD_API_BASE
 /** 正式发布后端地址 */
 const PROD_API_BASE = CLOUD_API_BASE
@@ -31,7 +26,7 @@ function normalizeBase(base) {
 
 function getApiBase() {
   const version = currentEnvVersion()
-  if (version === 'release') {
+  if (version === 'release' || !isDevToolsRuntime()) {
     return normalizeBase(PROD_API_BASE)
   }
   let override = ''
@@ -40,10 +35,7 @@ function getApiBase() {
   } catch (e) {
     override = ''
   }
-  // 旧开发包可能保存过 127.0.0.1；真机上的回环地址只会指向手机自身，必须回退云端。
-  if (!isDevToolsRuntime() && /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(?:\/|$)/i.test(override)) override = ''
-  const resolved = normalizeBase(override || DEV_API_BASE)
-  return resolved || LOCAL_API_BASE
+  return normalizeBase(override || DEV_API_BASE)
 }
 
 function isDevToolsRuntime() {
@@ -56,11 +48,8 @@ function isDevToolsRuntime() {
 }
 
 function setApiBase(url) {
+  if (!isDevToolsRuntime()) return
   wx.setStorageSync(API_BASE_STORAGE_KEY, String(url || '').trim())
-}
-
-function isDevToolsSession() {
-  return currentEnvVersion() !== 'release'
 }
 
 function currentEnvVersion() {
@@ -77,10 +66,9 @@ module.exports = {
   DEV_API_BASE,
   PROD_API_BASE,
   CLOUD_API_BASE,
-  LOCAL_API_BASE,
   getApiBase,
   setApiBase,
   normalizeBase,
   isDevToolsRuntime,
-  isDevToolsSession
+  currentEnvVersion
 }

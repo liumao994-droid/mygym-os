@@ -141,7 +141,9 @@ function summary(item, sport) {
     const sets = Array.isArray(item.volleyballSets) ? item.volleyballSets : []
     const won = sets.filter((s) => Number(s.ourScore) > Number(s.opponentScore)).length
     const lost = sets.filter((s) => Number(s.ourScore) < Number(s.opponentScore)).length
-    if (sets.length) return `${won} 胜 · ${lost} 负局`
+    const stats = item.volleyballStats || {}
+    const points = Number(stats.serve && stats.serve.aces || 0) + Number(stats.attack && stats.attack.points || 0) + Number(stats.block && stats.block.points || 0)
+    if (sets.length) return `${won} 胜 · ${lost} 负局 · 个人 ${Number.isFinite(points) ? points : 0} 分`
     if (item.durationMin) return `${item.durationMin} 分钟`
     return item.venue || SPORT_META[sport].label
   }

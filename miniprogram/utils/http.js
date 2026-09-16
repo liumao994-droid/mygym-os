@@ -22,7 +22,14 @@ function endLoading() {
 
 function toError(status, body, type) {
   const info = body && typeof body === 'object' ? body : {}
-  return createApiError(status, info.error, info.message, type)
+  const code = info.error
+  let message = info.message
+  if (status === 429) message = '尝试次数过多，请稍后再试'
+  else if (status >= 500) message = '服务器暂时异常，请稍后再试'
+  else if (code === 'INVALID_CREDENTIALS') message = '用户名或密码错误'
+  else if (code === 'USERNAME_TAKEN') message = '用户名已存在'
+  else if (status === 401) message = '登录状态已过期，请重新登录'
+  return createApiError(status, code, message, type)
 }
 
 /**
@@ -81,7 +88,7 @@ function request(options) {
       fail(err) {
         const msg = err && err.errMsg ? String(err.errMsg) : ''
         const type = /timeout/i.test(msg) ? 'TIMEOUT' : 'NETWORK'
-        reject(createApiError(0, type === 'TIMEOUT' ? 'TIMEOUT' : 'NETWORK', type === 'TIMEOUT' ? '请求超时,请稍后重试' : '无法连接服务器,请检查网络或 API 地址', type))
+        reject(createApiError(0, type === 'TIMEOUT' ? 'TIMEOUT' : 'NETWORK', '无法连接服务器，请稍后重试', type))
       },
       complete() {
         done()

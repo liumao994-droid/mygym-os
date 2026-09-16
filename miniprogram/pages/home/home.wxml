@@ -3,7 +3,7 @@
   <view class="hero wm-host">
     <brand-watermark size="hero" position="tr" tone="white" />
     <view class="hero-top">
-      <view>
+      <view class="hero-copy">
         <view class="brand">MYGYM OS</view>
         <view class="greeting">{{greeting}}，{{user.nickname}}</view>
         <view class="date">{{dateLabel}}</view>
@@ -13,7 +13,7 @@
     <view class="hero-status">
       <view>
         <view class="status-kicker">本月记录</view>
-        <view class="status-value num">{{monthRecords}}<text> 次</text></view>
+        <view class="status-value num">{{monthRecords}}<text class="status-unit"> 次</text></view>
       </view>
       <view class="status-divider"></view>
       <view>
@@ -46,16 +46,6 @@
     </view>
   </view>
 
-  <view class="insight-card" wx:if="{{ai}}">
-    <view class="insight-icon">AI</view>
-    <view class="insight-main">
-      <view class="insight-title">训练洞察</view>
-      <view class="insight-text" wx:if="{{ai.enabled}}">今日还可分析 {{ai.daily.remaining}} 次</view>
-      <view class="insight-text" wx:else>服务暂未开启</view>
-    </view>
-    <view class="insight-arrow">›</view>
-  </view>
-
   <view class="section-head recent-head">
     <view>
       <view class="section-eyebrow">RECENT</view>
@@ -78,7 +68,7 @@
   </view>
 
   <view class="account-line" wx:if="{{user}}">
-    <text>{{isWechat ? '微信账号' : '联调账号'}}</text>
+    <text>{{isWechat ? '微信账号' : 'MyGym OS 账号'}}</text>
     <text class="account-dot">·</text>
     <text bindtap="onLogout">退出登录</text>
   </view>

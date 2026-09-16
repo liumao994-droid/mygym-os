@@ -10,6 +10,45 @@ interface RateBucket {
   resetAt: number
 }
 
+const PROFILE_STATE_KEY = 'profileV1'
+const PROFILE_SPORTS = ['strength', 'badminton', 'swimming', 'tennis', 'volleyball'] as const
+const PROFILE_AVATARS = ['lime', 'cyan', 'coral', 'yellow', 'navy'] as const
+
+interface ProfileState {
+  bio: string
+  favoriteSports: string[]
+  weeklyGoal: number
+}
+
+function readProfileState(store: Store, userId: string): ProfileState {
+  const defaults: ProfileState = { bio: '', favoriteSports: [], weeklyGoal: 3 }
+  const row = store.get('SELECT value FROM app_state WHERE user_id = ? AND key = ?', userId, PROFILE_STATE_KEY)
+  if (!row || typeof row.value !== 'string') return defaults
+  try {
+    const value = JSON.parse(row.value) as Partial<ProfileState>
+    return {
+      bio: typeof value.bio === 'string' ? value.bio.slice(0, 120) : '',
+      favoriteSports: Array.isArray(value.favoriteSports)
+        ? value.favoriteSports.filter((sport): sport is string => PROFILE_SPORTS.includes(sport as typeof PROFILE_SPORTS[number])).slice(0, 5)
+        : [],
+      weeklyGoal: Number.isInteger(value.weeklyGoal) && Number(value.weeklyGoal) >= 1 && Number(value.weeklyGoal) <= 14
+        ? Number(value.weeklyGoal)
+        : 3,
+    }
+  } catch {
+    return defaults
+  }
+}
+
+function profileResponse(store: Store, user: { id: string; nickname: string; avatar?: string | null }) {
+  const state = readProfileState(store, user.id)
+  return {
+    nickname: user.nickname,
+    avatar: PROFILE_AVATARS.includes(user.avatar as typeof PROFILE_AVATARS[number]) ? user.avatar : 'lime',
+    ...state,
+  }
+}
+
 /** 进程内基础限流：V1 防住简单撞库/批量注册；分布式部署时再换共享存储。 */
 function createRateLimiter(max: number, windowMs: number, code: string, message: string) {
   const buckets = new Map<string, RateBucket>()
@@ -126,6 +165,43 @@ export function authRoutes(store: Store, cfg: AppConfig): Router {
   r.get('/me', requireAuth(store, cfg), (req, res) => {
     const { user } = authOf(req)
     res.json({ user })
+  })
+
+  r.get('/profile', requireAuth(store, cfg), (req, res) => {
+    const { user } = authOf(req)
+    res.json({ profile: profileResponse(store, user) })
+  })
+
+  r.patch('/profile', requireAuth(store, cfg), (req, res) => {
+    const { userId, user } = authOf(req)
+    const body = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>
+    const nickname = typeof body.nickname === 'string' ? body.nickname.trim() : user.nickname
+    const bio = typeof body.bio === 'string' ? body.bio.trim() : ''
+    const avatar = typeof body.avatar === 'string' ? body.avatar : 'lime'
+    const favoriteSports = Array.isArray(body.favoriteSports)
+      ? [...new Set(body.favoriteSports.filter((sport): sport is string => typeof sport === 'string'))]
+      : []
+    const weeklyGoal = Number(body.weeklyGoal)
+    if (!nickname || nickname.length > 24) throw new HttpError(400, 'INVALID_NICKNAME', '昵称需为 1-24 个字符')
+    if (bio.length > 120) throw new HttpError(400, 'INVALID_BIO', '个人简介不能超过 120 个字符')
+    if (!PROFILE_AVATARS.includes(avatar as typeof PROFILE_AVATARS[number])) throw new HttpError(400, 'INVALID_AVATAR', '请选择有效头像')
+    if (favoriteSports.length > 5 || favoriteSports.some((sport) => !PROFILE_SPORTS.includes(sport as typeof PROFILE_SPORTS[number]))) {
+      throw new HttpError(400, 'INVALID_FAVORITE_SPORTS', '请选择有效的常用运动')
+    }
+    if (!Number.isInteger(weeklyGoal) || weeklyGoal < 1 || weeklyGoal > 14) throw new HttpError(400, 'INVALID_WEEKLY_GOAL', '每周目标需为 1-14 次')
+    const state: ProfileState = { bio, favoriteSports, weeklyGoal }
+    const now = Date.now()
+    store.transaction(() => {
+      store.run('UPDATE users SET nickname = ?, avatar = ?, updated_at = ? WHERE id = ?', nickname, avatar, now, userId)
+      store.run(
+        'INSERT INTO app_state (user_id, key, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at',
+        userId,
+        PROFILE_STATE_KEY,
+        JSON.stringify(state),
+        now,
+      )
+    })
+    res.json({ profile: { nickname, avatar, ...state } })
   })
 
   r.post('/logout', requireAuth(store, cfg), (req, res) => {

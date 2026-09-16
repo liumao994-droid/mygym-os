@@ -55,6 +55,21 @@ test('本地账号:注册、统一登录错误与用户数据隔离', async () =
   assert.equal(missingUser.json.message, '用户名或密码错误')
 
   const tokenA = a.json.token as string
+  const defaultProfile = await request('/auth/profile', { token: tokenA })
+  assert.equal(defaultProfile.status, 200)
+  assert.deepEqual(defaultProfile.json.profile, {
+    nickname: '训练者 A', avatar: 'lime', bio: '', favoriteSports: [], weeklyGoal: 3,
+  })
+  const updatedProfile = await request('/auth/profile', {
+    method: 'PATCH', token: tokenA,
+    body: { nickname: '三毛', avatar: 'cyan', bio: '每周稳定训练', favoriteSports: ['strength', 'volleyball'], weeklyGoal: 4 },
+  })
+  assert.equal(updatedProfile.status, 200)
+  assert.equal(updatedProfile.json.profile.nickname, '三毛')
+  assert.equal(updatedProfile.json.profile.weeklyGoal, 4)
+  const persistedProfile = await request('/auth/profile', { token: tokenA })
+  assert.deepEqual(persistedProfile.json.profile, updatedProfile.json.profile)
+
   const now = Date.now()
   const session = await request('/sessions', {
     method: 'POST', token: tokenA,
@@ -73,10 +88,13 @@ test('本地账号:注册、统一登录错误与用户数据隔离', async () =
   }
 
   const b = await request('/auth/register', {
-    method: 'POST', body: { username: 'athleteb', password: 'password-B', nickname: '训练者 B' },
+    method: 'POST', body: { username: 'athleteb', password: 'password-B', nickname: '三毛' },
   })
   assert.equal(b.status, 201)
+  assert.equal(b.json.user.nickname, '三毛', '不同用户名必须允许相同昵称')
   const tokenB = b.json.token as string
+  const profileB = await request('/auth/profile', { token: tokenB })
+  assert.deepEqual(profileB.json.profile, { nickname: '三毛', avatar: 'lime', bio: '', favoriteSports: [], weeklyGoal: 3 })
   const sessionsB = await request('/sessions', { token: tokenB })
   assert.equal(sessionsB.status, 200)
   assert.equal(sessionsB.json.sessions.length, 0)

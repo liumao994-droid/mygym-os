@@ -2,8 +2,6 @@
 
 const auth = require('../../services/auth.js')
 const data = require('../../services/data.js')
-const ai = require('../../services/ai.js')
-const env = require('../../config/env.js')
 
 const SPORT_DEFS = [
   { id: 'strength', label: '力量训练', emoji: '🏋️', short: '力量', tone: 'lime' },
@@ -28,10 +26,8 @@ function pageMeta() {
 Page({
   data: {
     user: null,
-    apiBase: '',
     loading: false,
     error: '',
-    ai: null,
     greeting: '',
     dateLabel: '',
     monthRecords: 0,
@@ -54,7 +50,7 @@ Page({
       return
     }
     const meta = pageMeta()
-    this.setData({ apiBase: env.getApiBase(), greeting: meta.greeting, dateLabel: meta.dateLabel })
+    this.setData({ greeting: meta.greeting, dateLabel: meta.dateLabel })
     this.refresh()
   },
 
@@ -77,13 +73,12 @@ Page({
     this.setData({ loading: true, error: '' })
     try {
       const user = await auth.getMe()
-      const [sessions, badminton, swimming, tennis, volleyball, quotaBody] = await Promise.all([
+      const [sessions, badminton, swimming, tennis, volleyball] = await Promise.all([
         data.listSessions({ status: 'completed', limit: 100 }),
         data.listActivities({ sport: 'badminton', limit: 100 }),
         data.listActivities({ sport: 'swimming', limit: 100 }),
         data.listActivities({ sport: 'tennis', limit: 100 }),
-        data.listActivities({ sport: 'volleyball', limit: 100 }),
-        ai.quota()
+        data.listActivities({ sport: 'volleyball', limit: 100 })
       ])
       const bySport = { strength: sessions, badminton, swimming, tennis, volleyball }
       const sports = SPORT_DEFS.map((s) =>
@@ -102,7 +97,6 @@ Page({
       this.applyUser(user)
       this.setData({
         sports,
-        ai: quotaBody,
         greeting: meta.greeting,
         dateLabel: meta.dateLabel,
         totalRecords: allRecords.length,
@@ -116,10 +110,6 @@ Page({
     } finally {
       this.setData({ loading: false })
     }
-  },
-
-  onOpenSandbox() {
-    wx.navigateTo({ url: '/pages/sandbox/sandbox' })
   },
 
   onOpenStrength() {

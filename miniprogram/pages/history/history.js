@@ -40,7 +40,9 @@ function describeActivity(a) {
     const sets = Array.isArray(a.volleyballSets) ? a.volleyballSets : []
     const won = sets.filter((s) => Number(s.ourScore) > Number(s.opponentScore)).length
     const lost = sets.filter((s) => Number(s.ourScore) < Number(s.opponentScore)).length
-    if (sets.length) return `${won} 胜 · ${lost} 负局`
+    const stats = a.volleyballStats || {}
+    const points = Number(stats.serve && stats.serve.aces || 0) + Number(stats.attack && stats.attack.points || 0) + Number(stats.block && stats.block.points || 0)
+    if (sets.length) return `${won} 胜 · ${lost} 负局 · 个人 ${Number.isFinite(points) ? points : 0} 分`
     return a.durationMin ? `${a.durationMin} 分钟` : (a.venue || SPORT[a.sport].name)
   }
   const score = a.score || {}

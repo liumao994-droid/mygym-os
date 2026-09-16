@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="title">{{title}}</view>
+
+  <block wx:if="{{type === 'privacy'}}">
+    <view class="updated">更新日期：2026 年 9 月 16 日</view>
+    <view class="section-title">我们收集的信息</view>
+    <view class="paragraph">为提供账号登录和运动记录功能，我们会处理你主动提交的用户名、昵称、个人简介、运动偏好及训练记录。使用微信一键登录时，服务端仅使用微信临时登录凭证获取平台身份标识，小程序不会接触微信 AppSecret。</view>
+    <view class="section-title">信息的使用与存储</view>
+    <view class="paragraph">上述信息仅用于账号认证、保存训练记录、生成个人统计和保障数据安全。正式数据存储在 MyGym OS 的云端服务中，本地存储仅用于登录状态和必要缓存。</view>
+    <view class="section-title">信息安全</view>
+    <view class="paragraph">密码仅以不可逆哈希形式保存；不同账号的数据按用户身份隔离。退出登录后，本机登录凭证会被清除，已注销凭证不能继续访问受保护接口。</view>
+    <view class="section-title">你的选择</view>
+    <view class="paragraph">你可以编辑个人资料、删除运动记录或退出登录。如需查询、更正或删除账号信息，请通过小程序运营主体公布的联系方式联系我们。</view>
+  </block>
+
+  <block wx:else>
+    <view class="updated">更新日期：2026 年 9 月 16 日</view>
+    <view class="section-title">服务说明</view>
+    <view class="paragraph">MyGym OS 提供个人运动记录、历史查看与统计功能。你应妥善保管账号密码，并对账号内的操作负责。</view>
+    <view class="section-title">使用规则</view>
+    <view class="paragraph">请勿利用本服务上传违法内容、干扰服务运行或尝试访问其他用户的数据。运动统计仅供个人记录参考，不构成医疗或专业训练建议。</view>
+    <view class="section-title">数据与服务</view>
+    <view class="paragraph">我们会采取合理措施保障服务和数据安全。因网络故障、平台维护等原因暂时无法使用时，请稍后重试。</view>
+    <view class="section-title">协议更新</view>
+    <view class="paragraph">如服务内容发生重要变化，我们会更新本协议并在适当位置提示。</view>
+  </block>
+</view>

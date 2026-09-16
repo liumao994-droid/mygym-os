@@ -2,9 +2,37 @@
 
 const auth = require('../../services/auth.js')
 const data = require('../../services/data.js')
-const ai = require('../../services/ai.js')
 
 const SETTINGS_KEY = 'mygym.mini.settings.v1'
+const PROFILE_DEFAULTS = { nickname: '', avatar: 'lime', bio: '', favoriteSports: [], weeklyGoal: 3 }
+const AVATARS = ['lime', 'cyan', 'coral', 'yellow', 'navy']
+const SPORTS = [
+  { id: 'strength', label: '力量' },
+  { id: 'badminton', label: '羽毛球' },
+  { id: 'swimming', label: '游泳' },
+  { id: 'tennis', label: '网球' },
+  { id: 'volleyball', label: '排球' }
+]
+
+function dateKey(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function weekBounds(now) {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  return { start: dateKey(start), end: dateKey(end) }
+}
+
+function safeNumber(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
 
 function readSettings() {
   try { return Object.assign({ unit: 'kg', reminders: true }, wx.getStorageSync(SETTINGS_KEY) || {}) } catch (e) { return { unit: 'kg', reminders: true } }
@@ -37,7 +65,13 @@ Page({
     user: null,
     avatarChar: 'M',
     stats: { sessions: 0, sets: 0, exercises: 0, volume: 0, activities: 0 },
-    quota: null,
+    summary: { totalCount: 0, totalMinutes: 0, monthCount: 0, weeklyCount: 0, weeklyGoal: 3, weeklyPercent: 0 },
+    overview: SPORTS.map((sport) => Object.assign({}, sport, { count: 0 })),
+    profile: Object.assign({}, PROFILE_DEFAULTS),
+    profileForm: Object.assign({}, PROFILE_DEFAULTS),
+    profileSports: SPORTS.map((sport) => Object.assign({}, sport, { selected: false })),
+    avatars: AVATARS,
+    editingProfile: false,
     unit: 'kg',
     reminders: true,
     loading: false,
@@ -62,22 +96,46 @@ Page({
     if (this.data.loading) return
     this.setData({ loading: true })
     try {
-      const [user, backup, quota] = await Promise.all([auth.getMe(), data.exportBackup(), ai.quota().catch(() => null)])
+      const [user, profile, backup] = await Promise.all([auth.getMe(), auth.getProfile(), data.exportBackup()])
       const d = backup.data || {}
       const completed = (d.sessions || []).filter((s) => s.status === 'completed')
       const completedIds = new Set(completed.map((s) => s.id))
       const completedSets = (d.sets || []).filter((s) => completedIds.has(s.sessionId))
       const volume = completedSets.reduce((sum, s) => s.weight > 0 && s.reps > 0 ? sum + s.weight * s.reps : sum, 0)
+      const activities = (d.activitySessions || []).filter((item) => item && item.date && SPORTS.some((sport) => sport.id === item.sport))
+      const allRecords = completed.concat(activities)
+      const now = new Date()
+      const monthPrefix = dateKey(now).slice(0, 7)
+      const week = weekBounds(now)
+      const weeklyCount = allRecords.filter((item) => item.date >= week.start && item.date <= week.end).length
+      const weeklyGoal = profile.weeklyGoal || 3
+      const overview = SPORTS.map((sport) => ({
+        id: sport.id,
+        label: sport.label,
+        count: sport.id === 'strength' ? completed.length : activities.filter((item) => item.sport === sport.id).length
+      }))
+      const profileSports = SPORTS.map((sport) => Object.assign({}, sport, { selected: profile.favoriteSports.includes(sport.id) }))
       this.setData({
         user,
         avatarChar: (user.nickname || 'M').slice(0, 1),
-        quota,
+        profile,
+        profileForm: Object.assign({}, profile, { favoriteSports: profile.favoriteSports.slice() }),
+        profileSports,
+        overview,
+        summary: {
+          totalCount: allRecords.length,
+          totalMinutes: Math.round(completed.reduce((sum, item) => sum + safeNumber(item.durationSec) / 60, 0) + activities.reduce((sum, item) => sum + safeNumber(item.durationMin), 0)),
+          monthCount: allRecords.filter((item) => String(item.date).startsWith(monthPrefix)).length,
+          weeklyCount,
+          weeklyGoal,
+          weeklyPercent: Math.min(100, Math.round(weeklyCount / weeklyGoal * 100))
+        },
         stats: {
           sessions: completed.length,
           sets: completedSets.length,
           exercises: (d.exercises || []).filter((e) => !e.deletedAt).length,
           volume: Math.round(volume),
-          activities: (d.activitySessions || []).length
+          activities: activities.length
         }
       })
       this.lastLoadedAt = Date.now()
@@ -100,9 +158,74 @@ Page({
     this.setData({ reminders })
   },
 
+  onEditProfile() {
+    this.setData({ editingProfile: true, profileForm: Object.assign({}, this.data.profile, { favoriteSports: this.data.profile.favoriteSports.slice() }) })
+  },
+
+  onCancelProfile() {
+    const profile = this.data.profile
+    this.setData({
+      editingProfile: false,
+      profileForm: Object.assign({}, profile, { favoriteSports: profile.favoriteSports.slice() }),
+      profileSports: SPORTS.map((sport) => Object.assign({}, sport, { selected: profile.favoriteSports.includes(sport.id) }))
+    })
+  },
+
+  onProfileInput(e) {
+    const key = e.currentTarget.dataset.key
+    this.setData({ [`profileForm.${key}`]: e.detail.value })
+  },
+
+  onAvatar(e) {
+    this.setData({ 'profileForm.avatar': e.currentTarget.dataset.avatar })
+  },
+
+  onFavoriteSport(e) {
+    const id = e.currentTarget.dataset.sport
+    const selected = this.data.profileForm.favoriteSports.slice()
+    const index = selected.indexOf(id)
+    if (index >= 0) selected.splice(index, 1)
+    else selected.push(id)
+    this.setData({
+      'profileForm.favoriteSports': selected,
+      profileSports: SPORTS.map((sport) => Object.assign({}, sport, { selected: selected.includes(sport.id) }))
+    })
+  },
+
+  onGoal(e) {
+    this.setData({ 'profileForm.weeklyGoal': Number(e.detail.value) })
+  },
+
+  async onSaveProfile() {
+    if (this.data.busy) return
+    const form = this.data.profileForm
+    const nickname = String(form.nickname || '').trim()
+    if (!nickname) {
+      wx.showToast({ title: '请输入昵称', icon: 'none' })
+      return
+    }
+    this.setData({ busy: true })
+    try {
+      const profile = await auth.updateProfile({
+        nickname,
+        avatar: form.avatar,
+        bio: String(form.bio || '').trim(),
+        favoriteSports: form.favoriteSports,
+        weeklyGoal: Number(form.weeklyGoal)
+      })
+      this.setData({ profile, profileForm: Object.assign({}, profile, { favoriteSports: profile.favoriteSports.slice() }), editingProfile: false, avatarChar: profile.nickname.slice(0, 1) })
+      wx.showToast({ title: '资料已保存', icon: 'success' })
+      await this.load()
+    } catch (e) {
+      wx.showToast({ title: e.message || '保存失败，请稍后重试', icon: 'none' })
+    } finally {
+      this.setData({ busy: false })
+    }
+  },
+
   onOpen(e) {
     const target = e.currentTarget.dataset.target
-    const urls = { exercises: '/pages/exercises/exercises', templates: '/pages/templates/templates', reports: '/pages/reports/reports', sandbox: '/pages/sandbox/sandbox' }
+    const urls = { exercises: '/pages/exercises/exercises', templates: '/pages/templates/templates', reports: '/pages/reports/reports' }
     if (urls[target]) wx.navigateTo({ url: urls[target] })
   },
 

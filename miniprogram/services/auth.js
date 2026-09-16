@@ -2,7 +2,6 @@
 
 const http = require('../utils/http.js')
 const session = require('../utils/session.js')
-const env = require('../config/env.js')
 
 function wxLoginCode() {
   return new Promise((resolve, reject) => {
@@ -36,24 +35,6 @@ async function wechatLogin() {
   return auth
 }
 
-/** 仅开发者工具/体验版可用的本地联调登录(后端必须未关闭 DEV_AUTH_ENABLED)。 */
-async function devLogin(nickname) {
-  const auth = await http.request({
-    path: '/auth/dev-login',
-    method: 'POST',
-    data: { nickname: nickname || '小程序联调用户' },
-    auth: false,
-    loading: true,
-    loadingText: '联调登录中'
-  })
-  session.saveAuth(auth)
-  return auth
-}
-
-/**
- * 账号密码登录:与网页版共用同一个 local 账号(/auth/login)。
- * 登录成功后两端是同一个 userId,训练数据天然互通。
- */
 async function accountLogin(username, password) {
   const auth = await http.request({
     path: '/auth/login',
@@ -65,6 +46,19 @@ async function accountLogin(username, password) {
   })
   session.saveAuth(auth)
   return auth
+}
+
+async function register(username, password, nickname) {
+  const result = await http.request({
+    path: '/auth/register',
+    method: 'POST',
+    data: { username, password, nickname },
+    auth: false,
+    loading: true,
+    loadingText: '注册中'
+  })
+  session.saveAuth(result)
+  return result
 }
 
 /**
@@ -100,6 +94,18 @@ async function getMe() {
   return body.user
 }
 
+async function getProfile() {
+  const body = await http.request({ path: '/auth/profile' })
+  return body.profile
+}
+
+async function updateProfile(profile) {
+  const body = await http.request({ path: '/auth/profile', method: 'PATCH', data: profile, loading: true, loadingText: '保存中' })
+  const stored = session.getStoredAuth()
+  if (stored && stored.user) session.saveAuth(Object.assign({}, stored, { user: Object.assign({}, stored.user, { nickname: body.profile.nickname, avatar: body.profile.avatar }) }))
+  return body.profile
+}
+
 async function logout() {
   try {
     await http.request({ path: '/auth/logout', method: 'POST', skipAuthRedirect: true })
@@ -111,12 +117,13 @@ async function logout() {
 
 module.exports = {
   wechatLogin,
-  devLogin,
   accountLogin,
+  register,
   bindWechatToCurrentUser,
   isLoggedIn,
   currentUser,
   getMe,
-  logout,
-  canUseDevLogin: env.isDevToolsSession
+  getProfile,
+  updateProfile,
+  logout
 }

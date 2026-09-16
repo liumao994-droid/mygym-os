@@ -28,6 +28,7 @@
   align-items: center;
   justify-content: space-between;
 }
+.hero-copy { min-width: 0; flex: 1; }
 
 .brand {
   color: #b8f04b;
@@ -40,6 +41,7 @@
   margin-top: 12rpx;
   font-size: 40rpx;
   font-weight: 800;
+  word-break: break-all;
 }
 
 .date {
@@ -49,6 +51,7 @@
 }
 
 .avatar {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -60,6 +63,7 @@
   color: #172033;
   font-size: 28rpx;
   font-weight: 800;
+  margin-left: 20rpx;
 }
 
 .hero-status {
@@ -83,7 +87,7 @@
   font-weight: 800;
 }
 
-.status-value text {
+.status-unit {
   font-size: 20rpx;
   font-weight: 500;
 }

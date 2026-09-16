@@ -3,8 +3,11 @@
   "packOptions": {
     "ignore": [
       { "type": "folder", "value": "test" },
+      { "type": "folder", "value": "pages/sandbox" },
       { "type": "file", "value": "package.json" },
-      { "type": "file", "value": "README.md" }
+      { "type": "file", "value": "README.md" },
+      { "type": "file", "value": "appid.example.json" },
+      { "type": "file", "value": "services/ai.js" }
     ],
     "include": []
   },
